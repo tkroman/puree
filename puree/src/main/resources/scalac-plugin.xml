@@ -1,0 +1,4 @@
+<plugin>
+    <name>puree</name>
+    <classname>com.tkroman.puree.Puree</classname>
+</plugin>

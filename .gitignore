@@ -1,0 +1,9 @@
+target/
+.idea/
+.bloop/
+.metals/
+.idea
+*.iml
+.ensime
+.ensime_cache
+.DS_Store
