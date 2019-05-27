@@ -24,8 +24,8 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       val tt: Traverser = new Traverser {
         override def traverse(tree: Tree): Unit = {
           tree match {
-            case dd: Block if dd.stats.nonEmpty =>
-              dd.stats.foreach {
+            case Block(stats, _) =>
+              stats.foreach {
                 // ????!!!
                 case a: Apply if isEffect(a) =>
                   reporter.warning(a.pos, "Unused effectful function call")
