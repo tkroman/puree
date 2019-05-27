@@ -21,25 +21,17 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
 
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
     override def apply(unit: CompilationUnit): Unit = {
-      val tt: global.Traverser = new Traverser {
+      val tt: Traverser = new Traverser {
         override def traverse(tree: Tree): Unit = {
           tree match {
-            case dd: ValOrDefDef if dd.rhs.children.nonEmpty =>
-              val exprs: List[global.Tree] = dd.rhs.children
-              if (exprs.lengthCompare(1) > 0) {
-                val scr =
-                  if (exprs.last.hasExistingSymbol && !exprs.last.symbol.isSynthetic) {
-                    exprs.dropRight(1)
-                  } else {
-                    exprs.dropRight(2)
-                  }
-
-                scr.foreach {
-                  case a: Apply if a.fun.symbol.info.isHigherKinded =>
-                    global.reporter.warning(a.pos, "Unused effect")
-                  case _ =>
-                  // noop
-                }
+            case dd: Block if dd.stats.nonEmpty =>
+              dd.stats.foreach {
+                // ????!!!
+                case a: Apply
+                    if Option(a.tpe).forall(_.typeSymbol.typeParams.nonEmpty) =>
+                  reporter.warning(a.pos, "Unused effect")
+                case _ =>
+                // noop
               }
             case _ =>
             // noop

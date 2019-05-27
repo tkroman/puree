@@ -14,7 +14,8 @@ ThisBuild / scalaVersion := scala212
 
 val testSettings = Seq(
   libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest" % "3.1.0-SNAP11" % Test
+    "org.scalatest" %% "scalatest" % "3.1.0-SNAP11" % Test,
+    scalaOrganization.value % "scala-compiler" % scalaVersion.value % Test,
   ),
   Test / scalacOptions ++= {
     val jar = (puree / Compile / packageBin).value
@@ -24,6 +25,7 @@ val testSettings = Seq(
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 11)) => Seq.empty
       case _ => Seq(
+        "-feature",
         "-Ywarn-unused:implicits",
         "-Ywarn-unused:imports",
         "-Ywarn-unused:locals",
@@ -38,7 +40,7 @@ val testSettings = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(puree, pluginTests, pcplodTests)
+  .aggregate(puree, pureeTests)
   .settings(
     crossScalaVersions := Nil,
     publish / skip := true
@@ -56,24 +58,14 @@ lazy val puree = (project in file("puree"))
     sonatypeProjectHosting := Some(GitHubHosting("tkroman", "puree", "rmn.tk.ml@gmail.com")),
   )
 
-lazy val pluginTests = (project in file("plugin-tests"))
-  .dependsOn(puree)
-  .settings(crossScalaVersions := supportedScalaVersions)
-  .settings(testSettings)
-
-lazy val pcplodTests = (project in file("pcplod-tests"))
-  .dependsOn(pluginTests % "compile->compile;test->test")
+lazy val pureeTests = (project in file("puree-tests"))
   .settings(
-    name := "pcplod-tests",
+    name := "puree-tests",
     crossScalaVersions := List(scala211, scala212),
     libraryDependencies ++= Seq(
-      "org.ensime" %% "pcplod" % "1.2.1" % Test
+      scalaOrganization.value % "scala-compiler" % scalaVersion.value % Test
     ),
     // WORKAROUND https://github.com/ensime/pcplod/issues/12
     fork in Test := true,
-    javaOptions in Test ++= Seq(
-      s"""-Dpcplod.settings=${(scalacOptions in Test).value.filterNot(_.contains(",")).mkString(",")}""",
-      s"""-Dpcplod.classpath=${(fullClasspath in Test).value.map(_.data).mkString(",")}"""
-    )
   )
   .settings(testSettings)
