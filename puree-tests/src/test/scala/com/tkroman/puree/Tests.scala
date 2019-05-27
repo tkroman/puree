@@ -43,7 +43,8 @@ class Tests extends AnyFunSuite {
       }
 
       val s = new Settings()
-      val _ = s.processArguments(options, true)
+      // puree @ work :)
+      val _ = s.processArguments(options, processAll = true)
       s.outputDirs.setSingleOutput(new VirtualDirectory("<memory>", None))
       s.classpath.value = getSbtCompatibleClasspath
       s
