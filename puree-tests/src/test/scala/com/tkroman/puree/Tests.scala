@@ -77,62 +77,40 @@ class Tests extends AnyFunSuite {
     }
   }
 
-  private def compileAll() = {
+  private def ls(dir: String) = {
     import scala.collection.JavaConverters._
-    val pos = Files
+    Files
       .list(
         Paths.get(
           Thread
             .currentThread()
             .getContextClassLoader
-            .getResource("pos")
+            .getResource(dir)
             .getPath
         )
       )
       .collect(Collectors.toList[Path])
       .asScala
       .toList
-
-    val neg = Files
-      .list(
-        Paths.get(
-          Thread
-            .currentThread()
-            .getContextClassLoader
-            .getResource("neg")
-            .getPath
-        )
-      )
-      .collect(Collectors.toList[Path])
-      .asScala
-      .toList
-
-    pos
-      .map(p => p -> compileFile(p, true))
-      .foreach {
-        case (p, Left(err)) =>
-          test(p.subpath(p.getNameCount - 2, p.getNameCount).toString) {
-            fail(err)
-          }
-        case (p, Right(_)) =>
-          test(p.subpath(p.getNameCount - 2, p.getNameCount).toString) {
-            succeed
-          }
-      }
-
-    neg
-      .map(p => p -> compileFile(p, false))
-      .foreach {
-        case (p, Left(err)) =>
-          test(p.subpath(p.getNameCount - 2, p.getNameCount).toString) {
-            fail(err)
-          }
-        case (p, Right(_)) =>
-          test(p.subpath(p.getNameCount - 2, p.getNameCount).toString) {
-            succeed
-          }
-      }
   }
 
-  compileAll()
+  def compile(
+      fs: List[Path],
+      pos: Boolean
+  ): List[(Path, Either[String, Unit])] = {
+    fs.map(p => p -> compileFile(p, pos))
+  }
+
+  def mkTests(xs: List[(Path, Either[String, Unit])]): Unit = {
+    xs.foreach {
+      case (p, either) =>
+        test(p.getParent.getFileName + "/" + p.getFileName) {
+          either.fold(fail(_), Function.const(succeed))
+        }
+    }
+  }
+
+  mkTests(compile(ls("pos"), pos = true))
+
+  mkTests(compile(ls("neg"), pos = false))
 }
