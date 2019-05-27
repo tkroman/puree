@@ -1,25 +1,16 @@
 package com.tkroman.puree
 
-import java.nio.charset.StandardCharsets
+import java.net.URLClassLoader
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
-import scala.tools.reflect.{FrontEnd, ToolBoxError}
+import scala.tools.nsc.io.VirtualDirectory
+import scala.tools.nsc.plugins.Plugin
+import scala.tools.nsc.reporters.StoreReporter
+import scala.tools.nsc.util.ClassPath
+import scala.tools.nsc.{Global, Settings}
 import org.scalatest.funsuite.AnyFunSuite
 
 class Tests extends AnyFunSuite {
-  private val pluginJar =
-    Paths
-      .get(
-        Thread
-          .currentThread()
-          .getContextClassLoader
-          .getResource(".")
-          .getPath
-      )
-      .resolve("../../../../puree/target/scala-2.12/puree_2.12-0.0.1.jar")
-      .normalize()
-      .toAbsolutePath
-
   private val options = List(
     "-Ywarn-unused:implicits",
     "-Ywarn-unused:imports",
@@ -28,46 +19,58 @@ class Tests extends AnyFunSuite {
     "-Ywarn-unused:patvars",
     "-Ywarn-unused:privates",
     "-Xfatal-warnings",
-    "-Ywarn-value-discard",
-    // yuck
-    s"-Xplugin:${pluginJar.toString}",
-    s"-Jdummy=${System.currentTimeMillis()}"
+    "-Ywarn-value-discard"
   )
-  import scala.reflect.runtime.{universe => ru}
-  import scala.tools.reflect.ToolBox
-  val tb = ru
-    .runtimeMirror(Thread.currentThread().getContextClassLoader)
-    .mkToolBox(
-      frontEnd = new FrontEnd {
-        override def display(info: Info): Unit = ()
-        override def interactive(): Unit = ()
-      },
-      options = options.mkString(" ")
-    )
+
+  class MyGlobal(s: Settings, r: StoreReporter) extends Global(s, r) {
+    override protected def loadRoughPluginsList(): List[Plugin] =
+      new Puree(this) :: super.loadRoughPluginsList()
+
+    def getr: StoreReporter = r
+  }
+  val compiler: MyGlobal = {
+    val settings: Settings = {
+      def getSbtCompatibleClasspath: String = {
+        val loader: URLClassLoader =
+          getClass.getClassLoader.asInstanceOf[URLClassLoader]
+        val entries: Array[String] = loader.getURLs map (_.getPath)
+        val sclpath: Option[String] = entries find (_.endsWith(
+          "scala-compiler.jar"
+        )) map {
+          _.replaceAll("scala-compiler.jar", "scala-library.jar")
+        }
+        ClassPath.join(entries ++ sclpath: _*)
+      }
+
+      val s = new Settings()
+      val _ = s.processArguments(options, true)
+      s.outputDirs.setSingleOutput(new VirtualDirectory("<memory>", None))
+      s.classpath.value = getSbtCompatibleClasspath
+      s
+    }
+
+    new MyGlobal(settings, new StoreReporter)
+  }
 
   def compileFile(path: Path, pos: Boolean): Either[String, Unit] = {
     val short = path.subpath(path.getNameCount - 2, path.getNameCount).toString
     try {
-      val content = new String(
-        Files.readAllBytes(path),
-        StandardCharsets.UTF_8
-      )
-      val _ = tb.compile(
-        tb.parse(
-          s"object test { $content } ; test"
-        )
-      )
+      new compiler.Run()
+        .compileSources(List(compiler.getSourceFile(path.toString)))
+      if (compiler.getr.hasErrors) {
+        throw new Exception(compiler.getr.infos.map(_.msg).mkString("\n"))
+      }
       if (pos) {
         Right(())
       } else {
         Left(s"Expected compilation of $short to fail, succeeded instead")
       }
     } catch {
-      case e: ToolBoxError if pos =>
+      case e: Exception if pos =>
         Left(
           s"Expected compilation of $short to succeed, failed instead: ${e.getMessage}"
         )
-      case _: ToolBoxError =>
+      case _: Exception =>
         Right(())
 
     }

@@ -59,6 +59,7 @@ lazy val puree = (project in file("puree"))
   )
 
 lazy val pureeTests = (project in file("puree-tests"))
+  .dependsOn(puree, puree % "test->test")
   .settings(
     name := "puree-tests",
     crossScalaVersions := List(scala211, scala212),
