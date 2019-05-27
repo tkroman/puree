@@ -10,8 +10,9 @@ import scala.tools.nsc.util.ClassPath
 import scala.tools.nsc.{Global, Settings}
 import org.scalatest.funsuite.AnyFunSuite
 
+// super-hacky, NIH compiler, NIH "logging" etc
 class Tests extends AnyFunSuite {
-  private final val log = true
+  private final val log = false
 
   private val options = List(
     "-Ywarn-unused:implicits",
