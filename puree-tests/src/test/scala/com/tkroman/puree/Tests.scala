@@ -11,6 +11,8 @@ import scala.tools.nsc.{Global, Settings}
 import org.scalatest.funsuite.AnyFunSuite
 
 class Tests extends AnyFunSuite {
+  private final val log = true
+
   private val options = List(
     "-Ywarn-unused:implicits",
     "-Ywarn-unused:imports",
@@ -54,10 +56,26 @@ class Tests extends AnyFunSuite {
   def compileFile(path: Path, pos: Boolean): Either[String, Unit] = {
     val short: String = path.getParent.getFileName + "/" + path.getFileName
     try {
+      compiler.getr.reset()
       new compiler.Run()
         .compileSources(List(compiler.getSourceFile(path.toString)))
-      if (compiler.getr.hasErrors) {
-        throw new Exception(compiler.getr.infos.map(_.msg).mkString("\n"))
+      if (log && compiler.getr.infos.nonEmpty) {
+        println(
+          compiler.getr.infos
+            .map { i =>
+              val filename: Path = Paths
+                .get(i.pos.source.path)
+                .getFileName
+
+              s"${i.severity} $filename:${i.pos.line}:${i.pos.column} ${i.msg}"
+            }
+            .mkString("\n")
+        )
+      }
+      val msg: String = compiler.getr.infos.map(_.msg).mkString("\n")
+      val hasErrors: Boolean = compiler.getr.hasErrors
+      if (hasErrors) {
+        throw new Exception(msg)
       }
       if (pos) {
         Right(())
@@ -75,7 +93,7 @@ class Tests extends AnyFunSuite {
     }
   }
 
-  private def ls(dir: String) = {
+  private def ls(dir: String): List[Path] = {
     import scala.collection.JavaConverters._
     Files
       .list(
@@ -90,6 +108,7 @@ class Tests extends AnyFunSuite {
       .collect(Collectors.toList[Path])
       .asScala
       .toList
+      .filterNot(_.getFileName.toString.endsWith(".ignore"))
   }
 
   def compile(
