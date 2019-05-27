@@ -52,7 +52,7 @@ class Tests extends AnyFunSuite {
   }
 
   def compileFile(path: Path, pos: Boolean): Either[String, Unit] = {
-    val short = path.subpath(path.getNameCount - 2, path.getNameCount).toString
+    val short: String = path.getParent.getFileName + "/" + path.getFileName
     try {
       new compiler.Run()
         .compileSources(List(compiler.getSourceFile(path.toString)))
