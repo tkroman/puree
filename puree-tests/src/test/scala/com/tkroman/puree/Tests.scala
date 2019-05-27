@@ -34,11 +34,9 @@ class Tests extends AnyFunSuite {
         val loader: URLClassLoader =
           getClass.getClassLoader.asInstanceOf[URLClassLoader]
         val entries: Array[String] = loader.getURLs map (_.getPath)
-        val sclpath: Option[String] = entries find (_.endsWith(
-          "scala-compiler.jar"
-        )) map {
-          _.replaceAll("scala-compiler.jar", "scala-library.jar")
-        }
+        val sclpath: Option[String] = entries
+          .find(_.endsWith("scala-compiler.jar"))
+          .map(_.replaceAll("scala-compiler.jar", "scala-library.jar"))
         ClassPath.join(entries ++ sclpath: _*)
       }
 
