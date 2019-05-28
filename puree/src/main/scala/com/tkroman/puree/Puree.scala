@@ -6,7 +6,6 @@ import scala.tools.nsc.{Global, Phase}
 import com.tkroman.puree.annotation.intended
 
 // TODO detection:
-// - when using fake assignment via operators (+=, ++=, ...) - heuristics?
 // - exclude things like Comparable[String], Comparable[ByteBuffer], ... (basically every F[A <: F[A]]?)
 class Puree(val global: Global) extends Plugin {
   override val name = "puree"
