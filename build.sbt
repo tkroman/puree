@@ -7,7 +7,7 @@ lazy val scala211 = "2.11.12"
 lazy val supportedScalaVersions = List(scala211, scala212, scala213)
 
 ThisBuild / organization := "com.tkroman"
-ThisBuild / version := "0.0.1"
+ThisBuild / version := "0.0.2"
 ThisBuild / licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
 ThisBuild / homepage := Some(url("http://github.com/tkroman/puree"))
 ThisBuild / scalaVersion := scala212
