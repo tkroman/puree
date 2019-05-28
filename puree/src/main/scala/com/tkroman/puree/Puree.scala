@@ -56,6 +56,9 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
     private def isEffect(a: Tree): Option[Type] = {
       a match {
         case Apply(s @ Select(Super(_, _), _), _) if s.symbol.isConstructor =>
+          // in constructors, calling super.<init>
+          // when super is an F[_, _*] is seen as an
+          // unassigned effectful value :(
           None
         case _ =>
           Option(a.tpe).flatMap { tpe =>
