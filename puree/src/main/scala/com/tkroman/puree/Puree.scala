@@ -27,10 +27,21 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
             case Block(stats, _) =>
               stats.foreach {
                 // ????!!!
-                case a: Apply if isEffect(a) =>
-                  reporter.warning(a.pos, "Unused effectful function call")
-                case s: Select if isEffect(s) =>
-                  reporter.warning(s.pos, "Unused effectful member reference")
+                case a: Apply =>
+                  isEffect(a).foreach { eff =>
+                    reporter.warning(
+                      a.pos,
+                      s"Unused effectful function call of type $eff"
+                    )
+                  }
+                case s: Select =>
+                  isEffect(s).foreach { eff =>
+                    reporter.warning(
+                      s.pos,
+                      s"Unused effectful member reference of type $eff"
+                    )
+                  }
+
                 case _ =>
                 // noop
               }
@@ -43,8 +54,10 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       tt.traverse(unit.body)
     }
 
-    private def isEffect(a: Tree): Boolean = {
-      Option(a.tpe).forall(_.typeSymbol.typeParams.nonEmpty)
+    private def isEffect(a: Tree): Option[Type] = {
+      Option(a.tpe).flatMap { tpe =>
+        tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+      }
     }
   }
 }
