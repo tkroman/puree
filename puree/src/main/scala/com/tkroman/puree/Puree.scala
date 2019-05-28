@@ -1,5 +1,6 @@
 package com.tkroman.puree
 
+import scala.annotation.tailrec
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
 
@@ -7,7 +8,6 @@ import scala.tools.nsc.{Global, Phase}
 // - when explicit () is immediately following the effectful value
 // - when using fake assignment via operators (+=, ++=, ...) - heuristics?
 // - exclude things like Comparable[String], Comparable[ByteBuffer], ... (basically every F[A <: F[A]]?)
-// - object StringToLong extends CustomSerializer[Long]
 class Puree(val global: Global) extends Plugin {
   override val name = "puree"
   override val description = "Warn about unused effects"
@@ -58,9 +58,18 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       tt.traverse(unit.body)
     }
 
+    @tailrec
+    private def isSuperConstructorCall(t: Tree): Boolean = {
+      t match {
+        case Apply(Select(Super(This(_), _), _), _) => true
+        case Apply(nt, _)                           => isSuperConstructorCall(nt)
+        case _                                      => false
+      }
+    }
+
     private def isEffect(a: Tree): Option[Type] = {
       a match {
-        case Apply(s @ Select(Super(_, _), _), _) if s.symbol.isConstructor =>
+        case t if isSuperConstructorCall(t) =>
           // in constructors, calling super.<init>
           // when super is an F[_, _*] is seen as an
           // unassigned effectful value :(

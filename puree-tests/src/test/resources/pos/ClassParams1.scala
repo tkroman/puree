@@ -1,4 +1,4 @@
-object PcTest {
+object ClassParams1 {
   class Bar[A, B]
   class Baz[A, B](val l: Bar[A, B])
   def foo[A](): Baz[A, Int] = new Baz(new Bar)

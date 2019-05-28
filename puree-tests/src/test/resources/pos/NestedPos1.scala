@@ -1,4 +1,4 @@
-object Nested {
+object NestedPos1 {
   def f(): Int = {
     Option(1)
       .map { _ =>
