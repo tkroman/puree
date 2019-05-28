@@ -26,7 +26,6 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
           tree match {
             case Block(stats, _) =>
               stats.foreach {
-                // ????!!!
                 case a: Apply =>
                   isEffect(a).foreach { eff =>
                     reporter.warning(
@@ -34,10 +33,10 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
                       s"Unused effectful function call of type $eff"
                     )
                   }
-                case s: Select =>
-                  isEffect(s).foreach { eff =>
+                case a: Select =>
+                  isEffect(a).foreach { eff =>
                     reporter.warning(
-                      s.pos,
+                      a.pos,
                       s"Unused effectful member reference of type $eff"
                     )
                   }
@@ -55,8 +54,13 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
     }
 
     private def isEffect(a: Tree): Option[Type] = {
-      Option(a.tpe).flatMap { tpe =>
-        tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+      a match {
+        case Apply(s @ Select(Super(_, _), _), _) if s.symbol.isConstructor =>
+          None
+        case _ =>
+          Option(a.tpe).flatMap { tpe =>
+            tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+          }
       }
     }
   }
