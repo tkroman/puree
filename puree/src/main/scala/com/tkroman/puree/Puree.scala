@@ -29,66 +29,71 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       val tt: Traverser = new Traverser {
         override def traverse(tree: Tree): Unit = {
           tree match {
+            case Template(_, _, body) =>
+              findEffects(body)
             case Block(stats, _) =>
-              stats.foreach {
-                case a: Apply =>
-                  getEffect(a).foreach { eff =>
-                    reporter.warning(
-                      a.pos,
-                      s"Unused effectful function call of type $eff"
-                    )
-                  }
-                case a: Select =>
-                  getEffect(a).foreach { eff =>
-                    reporter.warning(
-                      a.pos,
-                      s"Unused effectful member reference of type $eff"
-                    )
-                  }
-
-                case _ =>
-                // noop
-              }
-            case _ =>
-            // noop
+              findEffects(stats)
+            case _ => // noop
           }
           super.traverse(tree)
         }
       }
       tt.traverse(unit.body)
     }
+  }
 
-    @tailrec
-    private def isSuperConstructorCall(t: Tree): Boolean = {
-      t match {
-        case Apply(Select(Super(This(_), _), _), _) => true
-        case Apply(nt, _)                           => isSuperConstructorCall(nt)
-        case _                                      => false
-      }
+  @tailrec
+  private def isSuperConstructorCall(t: Tree): Boolean = {
+    t match {
+      case Apply(Select(Super(This(_), _), _), _) => true
+      case Apply(nt, _)                           => isSuperConstructorCall(nt)
+      case _                                      => false
     }
+  }
 
-    private def dbg(t: Tree): Unit = {
-      println(t.pos.source.file.name + " " + showRaw(t))
+  private def dbg(t: Tree): Unit = {
+    println(t.pos.source.file.name + " " + showRaw(t))
+  }
+
+  private def getEffect(a: Tree): Option[Type] = {
+    a match {
+      case _ if intended(a) =>
+        // respect `intended`
+        None
+      case _ if isSuperConstructorCall(a) =>
+        // in constructors, calling super.<init>
+        // when super is an F[_, _*] is seen as an
+        // unassigned effectful value :(
+        None
+      case Apply(Select(_, op), _) if op.isOperatorName =>
+        // ignore operators
+        None
+      case _ =>
+        Option(a.tpe).flatMap { tpe =>
+          tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+        }
     }
+  }
 
-    private def getEffect(a: Tree): Option[Type] = {
-      a match {
-        case _ if intended(a) =>
-          // respect `intended`
-          None
-        case _ if isSuperConstructorCall(a) =>
-          // in constructors, calling super.<init>
-          // when super is an F[_, _*] is seen as an
-          // unassigned effectful value :(
-          None
-        case Apply(Select(_, op), _) if op.isOperatorName =>
-          // ignore operators
-          None
-        case _ =>
-          Option(a.tpe).flatMap { tpe =>
-            tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
-          }
-      }
+  private def findEffects(stats: List[Tree]): Unit = {
+    stats.foreach {
+      case a: Apply =>
+        getEffect(a).foreach { eff =>
+          reporter.warning(
+            a.pos,
+            s"Unused effectful function call of type $eff"
+          )
+        }
+      case a: Select =>
+        getEffect(a).foreach { eff =>
+          reporter.warning(
+            a.pos,
+            s"Unused effectful member reference of type $eff"
+          )
+        }
+
+      case _ =>
+      // noop
     }
   }
 
