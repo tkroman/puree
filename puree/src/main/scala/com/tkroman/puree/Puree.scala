@@ -67,14 +67,18 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       case Apply(Select(_, op), _) if op.isOperatorName =>
         // ignore operators
         None
-      case _ if a.tpe.baseTypeSeq.exists { bt =>
-            val info: global.Type = bt.typeSymbol.info
-            info.typeParams.nonEmpty && info.typeParams.forall(_.isFBounded)
-          } =>
-        None
+
       case _ =>
         Option(a.tpe).flatMap { tpe =>
-          tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+          // looking at basetypeseq b/c None is an Option[A]
+          if (tpe.baseTypeSeq.exists(_.typeSymbol.isSealed)) {
+            tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+          } else {
+            // only consider ST hierarchies, because e.g. String is a Comparable[String]
+            // and I'm not sure how to handle these cases except for listing
+            // all (most) of the F-bounded traits/interfaces here which sounds pretty bad
+            None
+          }
         }
     }
   }
