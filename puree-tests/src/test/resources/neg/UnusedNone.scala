@@ -1,4 +1,4 @@
-object UnusedOption {
+object UnusedNone {
   def f(): Int = {
     None
     1
