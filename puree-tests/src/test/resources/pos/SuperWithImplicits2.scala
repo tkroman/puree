@@ -1,4 +1,4 @@
-object SuperWithImplicits1 {
+object SuperWithImplicits2 {
   class EvA[A]
   object EvA {
     implicit val evLong = new EvA[Long]

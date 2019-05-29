@@ -96,7 +96,7 @@ class Tests extends AnyFunSuite {
 
   private def ls(dir: String): List[Path] = {
     import scala.collection.JavaConverters._
-    Files
+    val allFiles = Files
       .list(
         Paths.get(
           Thread
@@ -110,6 +110,15 @@ class Tests extends AnyFunSuite {
       .asScala
       .toList
       .filterNot(_.getFileName.toString.endsWith(".ignore"))
+
+    val only: List[Path] =
+      allFiles.filter(_.getFileName.toString.endsWith(".only"))
+
+    if (only.nonEmpty) {
+      only
+    } else {
+      allFiles
+    }
   }
 
   def compile(

@@ -67,6 +67,11 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       case Apply(Select(_, op), _) if op.isOperatorName =>
         // ignore operators
         None
+      case _ if a.tpe.baseTypeSeq.exists { bt =>
+            val info: global.Type = bt.typeSymbol.info
+            info.typeParams.nonEmpty && info.typeParams.forall(_.isFBounded)
+          } =>
+        None
       case _ =>
         Option(a.tpe).flatMap { tpe =>
           tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
@@ -97,6 +102,7 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
   }
 
   private def intended(a: global.Tree): Boolean = {
-    a.symbol.annotations.exists(_.tpe == typeOf[intended])
+    a.symbol.annotations
+      .exists(_.tpe == typeOf[intended])
   }
 }
