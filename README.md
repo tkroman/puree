@@ -1,6 +1,8 @@
 # puree
 A Scala compiler plugin to warn about unused effects
 
+[![CircleCI](https://circleci.com/gh/tkroman/puree.svg?style=svg)](https://circleci.com/gh/tkroman/puree)
+
 # Why
 
 ## Effects
