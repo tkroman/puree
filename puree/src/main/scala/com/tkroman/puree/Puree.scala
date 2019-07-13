@@ -80,6 +80,8 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
             } else {
               // can't risk going full basetypeseq b/c
               // e.g. String is Comparable[String] :/
+              // FIXME: is it better to list (and allow for configuration)
+              // FIXME: the set of "ok" F[_]s? Comparable etc
               None
             }
           }
