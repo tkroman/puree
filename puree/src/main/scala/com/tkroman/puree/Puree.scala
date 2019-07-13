@@ -5,8 +5,6 @@ import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
 import com.tkroman.puree.annotation.intended
 
-// TODO detection:
-// - exclude things like Comparable[String], Comparable[ByteBuffer], ... (basically every F[A <: F[A]]?)
 class Puree(val global: Global) extends Plugin {
   override val name = "puree"
   override val description = "Warn about unused effects"
@@ -59,25 +57,31 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
       case _ if intended(a) =>
         // respect `intended`
         None
+
       case _ if isSuperConstructorCall(a) =>
         // in constructors, calling super.<init>
         // when super is an F[_, _*] is seen as an
         // unassigned effectful value :(
         None
+
       case Apply(Select(_, op), _) if op.isOperatorName =>
         // ignore operators
         None
 
       case _ =>
         Option(a.tpe).flatMap { tpe =>
-          // looking at basetypeseq b/c None is an Option[A]
-          if (tpe.baseTypeSeq.exists(_.typeSymbol.isSealed)) {
-            tpe.baseTypeSeq.toList.find(_.typeSymbol.typeParams.nonEmpty)
+          if (tpe.typeSymbol.typeParams.nonEmpty) {
+            Some(tpe)
           } else {
-            // only consider ST hierarchies, because e.g. String is a Comparable[String]
-            // and I'm not sure how to handle these cases except for listing
-            // all (most) of the F-bounded traits/interfaces here which sounds pretty bad
-            None
+            val bts: List[Type] = tpe.baseTypeSeq.toList
+            // looking at basetypeseq b/c None is an Option[A]
+            if (bts.exists(bt => bt.typeSymbol.isSealed)) {
+              bts.find(bt => bt.typeSymbol.typeParams.nonEmpty)
+            } else {
+              // can't risk going full basetypeseq b/c
+              // e.g. String is Comparable[String] :/
+              None
+            }
           }
         }
     }

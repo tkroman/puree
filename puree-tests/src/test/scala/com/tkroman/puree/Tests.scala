@@ -3,6 +3,7 @@ package com.tkroman.puree
 import java.net.URLClassLoader
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
+import scala.collection.immutable.ArraySeq
 import scala.tools.nsc.io.VirtualDirectory
 import scala.tools.nsc.plugins.Plugin
 import scala.tools.nsc.reporters.StoreReporter
@@ -40,7 +41,7 @@ class Tests extends AnyFunSuite {
         val sclpath: Option[String] = entries
           .find(_.endsWith("scala-compiler.jar"))
           .map(_.replaceAll("scala-compiler.jar", "scala-library.jar"))
-        ClassPath.join(entries ++ sclpath: _*)
+        ClassPath.join(ArraySeq.unsafeWrapArray(entries ++ sclpath): _*)
       }
 
       val s = new Settings()
@@ -55,7 +56,8 @@ class Tests extends AnyFunSuite {
   }
 
   def compileFile(path: Path, pos: Boolean): Either[String, Unit] = {
-    val short: String = path.getParent.getFileName + "/" + path.getFileName
+    val short
+        : String = path.getParent.getFileName.toString + "/" + path.getFileName.toString
     try {
       compiler.getr.reset()
       new compiler.Run()
@@ -95,7 +97,7 @@ class Tests extends AnyFunSuite {
   }
 
   private def ls(dir: String): List[Path] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val allFiles = Files
       .list(
         Paths.get(
@@ -131,7 +133,7 @@ class Tests extends AnyFunSuite {
   def mkTests(xs: List[(Path, Either[String, Unit])]): Unit = {
     xs.foreach {
       case (p, either) =>
-        test(p.getParent.getFileName + "/" + p.getFileName) {
+        test(p.getParent.getFileName.toString + "/" + p.getFileName.toString) {
           either.fold(fail(_), Function.const(succeed))
         }
     }
