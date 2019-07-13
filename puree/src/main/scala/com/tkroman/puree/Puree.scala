@@ -78,11 +78,12 @@ class UnusedEffectDetector(plugin: Puree, val global: Global)
             if (bts.exists(bt => bt.typeSymbol.isSealed)) {
               bts.find(bt => bt.typeSymbol.typeParams.nonEmpty)
             } else {
-              // can't risk going full basetypeseq b/c
+              // Only F-bounded because if we just look for
+              // ANY non-empty F[_] in baseTypeSeq b/c
               // e.g. String is Comparable[String] :/
               // FIXME: is it better to list (and allow for configuration)
               // FIXME: the set of "ok" F[_]s? Comparable etc
-              None
+              bts.find(_.typeSymbol.typeParams.exists(_.isFBounded))
             }
           }
         }

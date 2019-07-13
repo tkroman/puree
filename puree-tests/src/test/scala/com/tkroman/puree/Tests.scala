@@ -56,8 +56,8 @@ class Tests extends AnyFunSuite {
   }
 
   def compileFile(path: Path, pos: Boolean): Either[String, Unit] = {
-    val short
-        : String = path.getParent.getFileName.toString + "/" + path.getFileName.toString
+    val short: String =
+      path.getParent.getFileName.toString + "/" + path.getFileName.toString
     try {
       compiler.getr.reset()
       new compiler.Run()
@@ -140,6 +140,5 @@ class Tests extends AnyFunSuite {
   }
 
   mkTests(compile(ls("pos"), pos = true))
-
   mkTests(compile(ls("neg"), pos = false))
 }
