@@ -13,9 +13,9 @@ import org.scalatest.funsuite.AnyFunSuite
 
 // super-hacky, NIH compiler, NIH "logging" etc
 class Tests extends AnyFunSuite {
-  private final val log = false
+  private final val log: Boolean = false
 
-  private val options = List(
+  private val options: List[String] = List(
     "-Ywarn-unused:implicits",
     "-Ywarn-unused:imports",
     "-Ywarn-unused:locals",
@@ -139,6 +139,7 @@ class Tests extends AnyFunSuite {
     }
   }
 
+  // TODO add off/strict tests
   mkTests(compile(ls("pos"), pos = true))
   mkTests(compile(ls("neg"), pos = false))
 }
