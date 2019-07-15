@@ -6,7 +6,7 @@ A Scala compiler plugin to warn about unused effects
 # sbt setup
 
 ```scala
-lazy val pureeV = "0.0.9"
+lazy val pureeV = "0.0.10"
 libraryDependencies ++= Seq(
   compilerPlugin("com.tkroman" %% "puree" % pureeV),
   "com.tkroman" %% "puree-api" % pureeV % Provided
