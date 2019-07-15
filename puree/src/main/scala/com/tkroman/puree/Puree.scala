@@ -62,7 +62,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
   override val runsBefore: List[String] = List("patmat")
   override val phaseName: String = "puree-checker"
 
-  private val UnitType: global.Type = typeOf[Unit]
+  private val UnitType: Type = typeOf[Unit]
 
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
     override def apply(unit: CompilationUnit): Unit = {
@@ -172,7 +172,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     puree.getLevel == Levels.Strict
   }
 
-  private def intended(a: global.Tree): Boolean = {
+  private def intended(a: Tree): Boolean = {
     def check(scrutinee: Annotatable[_]): Boolean =
       scrutinee.annotations.exists(_.tpe == typeOf[intended])
 
