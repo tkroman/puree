@@ -45,7 +45,9 @@ scalacOptions += Seq("-P:puree:level:strict")
 # Disabling Puree selectively
 
 We also ship the `puree-api` package which provides an `@intended` annotation
-that users can use whenever they want to disable checking for a chunk of code:
+that users can use whenever they want to disable checking for a chunk of code.
+
+Note: `@intended` also takes optional explanation argument.
 
 ```scala
 import com.tkroman.puree.annotation.intended
@@ -67,8 +69,8 @@ Another realistic usecase is builders:
 import com.tkroman.puree.annotation.intended
 
 val buf = List.newBuilder[Byte]
-(buf += 0xf.toByte): @intended
-buf.result
+(buf += 0xf.toByte): @intended("not calling .result() here")
+buf.result()
 ```
 
 In future some of these use-cases may be heuristically solved by the library
