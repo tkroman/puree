@@ -64,21 +64,24 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
     override def apply(unit: CompilationUnit): Unit = {
-      if (puree.level != Levels.Off) {
-        val tt: Traverser = new Traverser {
-          override def traverse(tree: Tree): Unit = {
-            tree match {
-              case Template(_, _, body) =>
-                findEffects(body)
-              case Block(stats, _) =>
-                findEffects(stats)
-              case _ => // noop
-            }
+      val tt: Traverser = new Traverser {
+        override def traverse(tree: Tree): Unit = {
+          val descend: Boolean = tree match {
+            case t if t.hasSymbolField && intended(t) =>
+              false
+            case Template(_, _, body) =>
+              !effectsFound(body)
+            case Block(stats, _) =>
+              !effectsFound(stats)
+            case _ =>
+              true
+          }
+          if (descend) {
             super.traverse(tree)
           }
         }
-        tt.traverse(unit.body)
       }
+      tt.traverse(unit.body)
     }
   }
 
@@ -137,25 +140,39 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
   }
 
-  private def findEffects(stats: List[Tree]): Unit = {
-    stats.foreach {
+  private def effectsFound(stats: List[Tree]): Boolean = {
+    def warnIfShould(e: Option[Type], warning: Type => Unit): Boolean = {
+      e match {
+        case Some(a) =>
+          warning(a)
+          true
+        case None =>
+          false
+      }
+    }
+
+    stats.exists {
       case a: Apply =>
-        getEffect(a).foreach { eff =>
-          reporter.warning(
-            a.pos,
-            s"Unused effectful function call of type $eff"
-          )
-        }
+        warnIfShould(
+          getEffect(a),
+          eff =>
+            reporter.warning(
+              a.pos,
+              s"Unused effectful function call of type $eff"
+            )
+        )
       case a: Select =>
-        getEffect(a).foreach { eff =>
-          reporter.warning(
-            a.pos,
-            s"Unused effectful member reference of type $eff"
-          )
-        }
+        warnIfShould(
+          getEffect(a),
+          eff =>
+            reporter.warning(
+              a.pos,
+              s"Unused effectful member reference of type $eff"
+            )
+        )
 
       case _ =>
-      // noop
+        false
     }
   }
 

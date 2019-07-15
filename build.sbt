@@ -7,10 +7,14 @@ lazy val scala211 = "2.11.12"
 lazy val supportedScalaVersions = List(scala211, scala212, scala213)
 
 ThisBuild / organization := "com.tkroman"
-ThisBuild / version := "0.0.7-SNAPSHOT"
+ThisBuild / version := "0.0.8"
 ThisBuild / licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
 ThisBuild / homepage := Some(url("http://github.com/tkroman/puree"))
 ThisBuild / scalaVersion := scala213
+ThisBuild / sonatypeProfileName := "com.tkroman"
+ThisBuild / publishMavenStyle := true
+ThisBuild / licenses := Seq("MIT" -> url("https://github.com/tkroman/puree/blob/master/LICENSE"))
+ThisBuild / sonatypeProjectHosting := Some(GitHubHosting("tkroman", "puree", "rmn.tk.ml@gmail.com"))
 
 lazy val testSettings = Seq(
   libraryDependencies ++= Seq(

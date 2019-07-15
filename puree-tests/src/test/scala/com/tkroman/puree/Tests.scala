@@ -88,7 +88,7 @@ class Tests extends AnyFunSuite {
     } catch {
       case e: Exception if pos =>
         Left(
-          s"Expected compilation of $short to succeed, failed instead: ${e.getMessage}"
+          s"Expected compilation of $short to succeed, failed instead:\n${e.getMessage}"
         )
       case _: Exception =>
         Right(())
