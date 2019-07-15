@@ -1,6 +1,8 @@
 object FoldLeft {
   def distinct1[A](xs: List[A]): List[A] = {
+    import com.tkroman.puree.annotation.intended
     import scala.collection.immutable
+
     val buf = List.newBuilder[A]
     xs.tail.foldLeft(immutable.HashSet(xs.head: A)) { (seen, x) =>
       if (seen(x)) seen
@@ -8,7 +10,7 @@ object FoldLeft {
         buf += x
         seen + x
       }
-    }: @com.tkroman.puree.annotation.intended
+    }: @intended
     buf.result()
   }
 

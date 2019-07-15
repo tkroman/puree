@@ -67,7 +67,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
       val tt: Traverser = new Traverser {
         override def traverse(tree: Tree): Unit = {
           val descend: Boolean = tree match {
-            case t if t.hasSymbolField && intended(t) =>
+            case t if intended(t) =>
               false
             case Template(_, _, body) =>
               !effectsFound(body)
@@ -100,18 +100,10 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
   private def getEffect(a: Tree): Option[Type] = {
     a match {
-      case _ if intended(a) =>
-        // respect `intended`
-        None
-
       case _ if isSuperConstructorCall(a) =>
         // in constructors, calling super.<init>
         // when super is an F[_, _*] is seen as an
         // unassigned effectful value :(
-        None
-
-      case Apply(Select(_, op), _) if op.isOperatorName && !strict() =>
-        // ignore operators (if non-strict)
         None
 
       case _ =>
@@ -152,6 +144,8 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
 
     stats.exists {
+      case s if intended(s) =>
+        false
       case a: Apply =>
         warnIfShould(
           getEffect(a),
@@ -161,12 +155,12 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
               s"Unused effectful function call of type $eff"
             )
         )
-      case a: Select =>
+      case t if t.isTerm =>
         warnIfShould(
-          getEffect(a),
+          getEffect(t),
           eff =>
             reporter.warning(
-              a.pos,
+              t.pos,
               s"Unused effectful member reference of type $eff"
             )
         )
@@ -177,6 +171,17 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
   }
 
   private def intended(a: global.Tree): Boolean = {
-    a.symbol.annotations.exists(_.tpe == typeOf[intended])
+    def check(scrutinee: Annotatable[_]): Boolean =
+      scrutinee.annotations.exists(_.tpe == typeOf[intended])
+
+    if (a.isType && a.hasSymbolField) {
+      check(a.symbol)
+    } else if (a.isTerm) {
+      check(a.tpe)
+    } else if (a.isDef) {
+      check(a.symbol)
+    } else {
+      false
+    }
   }
 }

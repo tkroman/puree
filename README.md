@@ -45,7 +45,7 @@ scalacOptions += Seq("-P:puree:level:strict")
 # Disabling Puree selectively
 
 We also ship the `puree-api` package which provides an `@intended` annotation
-that users can use whenever they can disable checking for a chunk of code:
+that users can use whenever they want to disable checking for a chunk of code:
 
 ```scala
 import com.tkroman.puree.annotation.intended
@@ -60,6 +60,19 @@ class GoingDirty {
 }
 ```
 This will compile fine.
+
+Another realistic usecase is builders:
+
+```scala
+import com.tkroman.puree.annotation.intended
+
+val buf = List.newBuilder[Byte]
+(buf += 0xf.toByte): @intended
+buf.result
+```
+
+In future some of these use-cases may be heuristically solved by the library
+but at this point we prefer to remain as flexible as possible.
 
 # Why
 
@@ -156,6 +169,7 @@ if there is an `F[_, _*]`, it's not assigned to anythings,
 is not composed with anythings, and is not a last expression in the block,
 it's considered to be worthy a warning. Making warnings into errors via `Xfatal-warnings`
 takes care of the rest.
+
 We also don't try taking over other warings, so there are no additional rules.
 
 
