@@ -9,13 +9,14 @@ import scala.tools.nsc.plugins.Plugin
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.util.ClassPath
 import scala.tools.nsc.{Global, Settings}
+import com.tkroman.puree.annotation.intended
 import org.scalatest.funsuite.AnyFunSuite
 
 // super-hacky, NIH compiler, NIH "logging" etc
 class Tests extends AnyFunSuite {
   private final val log: Boolean = false
 
-  private val options: List[String] = List(
+  private val commonOptions: List[String] = List(
     "-Ywarn-unused:implicits",
     "-Ywarn-unused:imports",
     "-Ywarn-unused:locals",
@@ -30,9 +31,9 @@ class Tests extends AnyFunSuite {
     override protected def loadRoughPluginsList(): List[Plugin] =
       new Puree(this) :: super.loadRoughPluginsList()
 
-    def getr: StoreReporter = r
+    def myReporter: StoreReporter = r
   }
-  val compiler: MyGlobal = {
+  def compiler(moreOptions: List[String]): MyGlobal = {
     val settings: Settings = {
       def getSbtCompatibleClasspath: String = {
         val loader: URLClassLoader =
@@ -46,7 +47,10 @@ class Tests extends AnyFunSuite {
 
       val s = new Settings()
       // puree @ work :)
-      val _ = s.processArguments(options, processAll = true)
+      s.processArguments(
+        moreOptions ++ commonOptions,
+        processAll = false
+      ): @intended
       s.outputDirs.setSingleOutput(new VirtualDirectory("<memory>", None))
       s.classpath.value = getSbtCompatibleClasspath
       s
@@ -55,16 +59,23 @@ class Tests extends AnyFunSuite {
     new MyGlobal(settings, new StoreReporter)
   }
 
-  def compileFile(path: Path, pos: Boolean): Either[String, Unit] = {
+  lazy val strictCompiler: MyGlobal = compiler(List("-P:puree:level:strict"))
+  lazy val moderateCompiler: MyGlobal = compiler(List("-P:puree:level:effects"))
+
+  def compileFile(
+      path: Path,
+      pos: Boolean,
+      compiler: MyGlobal
+  ): Either[String, Unit] = {
     val short: String =
       path.getParent.getFileName.toString + "/" + path.getFileName.toString
     try {
-      compiler.getr.reset()
+      compiler.myReporter.reset()
       new compiler.Run()
         .compileSources(List(compiler.getSourceFile(path.toString)))
-      if (log && compiler.getr.infos.nonEmpty) {
+      if (log && compiler.myReporter.infos.nonEmpty) {
         println(
-          compiler.getr.infos
+          compiler.myReporter.infos
             .map { i =>
               val filename: Path = Paths
                 .get(i.pos.source.path)
@@ -75,8 +86,8 @@ class Tests extends AnyFunSuite {
             .mkString("\n")
         )
       }
-      val msg: String = compiler.getr.infos.map(_.msg).mkString("\n")
-      val hasErrors: Boolean = compiler.getr.hasErrors
+      val msg: String = compiler.myReporter.infos.map(_.msg).mkString("\n")
+      val hasErrors: Boolean = compiler.myReporter.hasErrors
       if (hasErrors) {
         throw new Exception(msg)
       }
@@ -125,21 +136,26 @@ class Tests extends AnyFunSuite {
 
   def compile(
       fs: List[Path],
-      pos: Boolean
+      pos: Boolean,
+      compiler: MyGlobal
   ): List[(Path, Either[String, Unit])] = {
-    fs.map(p => p -> compileFile(p, pos))
+    fs.map(p => p -> compileFile(p, pos, compiler))
   }
 
   def mkTests(xs: List[(Path, Either[String, Unit])]): Unit = {
+    def par(f: Path): String = f.getParent.getFileName.toString
     xs.foreach {
       case (p, either) =>
-        test(p.getParent.getFileName.toString + "/" + p.getFileName.toString) {
+        test(par(p.getParent) + "/" + par(p) + "/" + p.getFileName.toString) {
           either.fold(fail(_), Function.const(succeed))
         }
     }
   }
 
-  // TODO add off/strict tests
-  mkTests(compile(ls("pos"), pos = true))
-  mkTests(compile(ls("neg"), pos = false))
+  // TODO add "off" level tests
+  mkTests(compile(ls("effects/pos"), pos = true, moderateCompiler))
+  mkTests(compile(ls("effects/neg"), pos = false, moderateCompiler))
+
+  mkTests(compile(ls("strict/pos"), pos = true, strictCompiler))
+  mkTests(compile(ls("strict/neg"), pos = false, strictCompiler))
 }
