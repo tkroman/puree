@@ -52,7 +52,7 @@ import com.tkroman.puree.annotation.intended
 
 @intended
 class GoingDirty {
-  def f(): Task[Int] = Task(1)
+  def f(): Future[Int] = Future(1)
   def g(): Int = {
     f() // I mean... you asked for it
     1
