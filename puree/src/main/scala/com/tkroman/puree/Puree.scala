@@ -1,5 +1,7 @@
 package com.tkroman.puree
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.function
 import scala.annotation.tailrec
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
@@ -64,6 +66,10 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
   private val UnitType: Type = typeOf[Unit]
 
+  // avoid expensive lookups
+  private val cache: ConcurrentHashMap[String, Option[Type]] =
+    new ConcurrentHashMap[String, Option[Type]]()
+
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
     override def apply(unit: CompilationUnit): Unit = {
       val tt: Traverser = new Traverser {
@@ -97,26 +103,33 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
       case _ =>
         Option(a.tpe).flatMap { tpe =>
-          if (strict() && !(tpe =:= UnitType)) {
-            // under strict settings we abort on any non-unit method
-            // (assuming unit is always side-effecting)
-            Some(tpe)
-          } else if (tpe.typeSymbol.typeParams.nonEmpty) {
-            Some(tpe)
-          } else {
-            val bts: List[Type] = tpe.baseTypeSeq.toList
-            // looking at basetypeseq b/c None is an Option[A]
-            if (bts.exists(bt => bt.typeSymbol.isSealed)) {
-              bts.find(bt => bt.typeSymbol.typeParams.nonEmpty)
-            } else {
-              // Only F-bounded because if we just look for
-              // ANY non-empty F[_] in baseTypeSeq b/c
-              // e.g. String is Comparable[String] :/
-              // FIXME: is it better to list (and allow for configuration)
-              // FIXME: the set of "ok" F[_]s? Comparable etc
-              bts.find(_.typeSymbol.typeParams.exists(_.isFBounded))
+          cache.computeIfAbsent(
+            tpe.safeToString,
+            new function.Function[String, Option[Type]] {
+              override def apply(t: String): Option[Type] = {
+                if (strict() && !(tpe =:= UnitType)) {
+                  // under strict settings we abort on any non-unit method
+                  // (assuming unit is always side-effecting)
+                  Some(tpe)
+                } else if (tpe.typeSymbol.typeParams.nonEmpty) {
+                  Some(tpe)
+                } else {
+                  val bts: List[Type] = tpe.baseTypeSeq.toList
+                  // looking at basetypeseq b/c None is an Option[A]
+                  if (bts.exists(bt => bt.typeSymbol.isSealed)) {
+                    bts.find(bt => bt.typeSymbol.typeParams.nonEmpty)
+                  } else {
+                    // Only F-bounded because if we just look for
+                    // ANY non-empty F[_] in baseTypeSeq b/c
+                    // e.g. String is Comparable[String] :/
+                    // FIXME: is it better to list (and allow for configuration)
+                    // FIXME: the set of "ok" F[_]s? Comparable etc
+                    bts.find(_.typeSymbol.typeParams.exists(_.isFBounded))
+                  }
+                }
+              }
             }
-          }
+          )
         }
     }
   }
