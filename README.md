@@ -42,6 +42,24 @@ scalacOptions += Seq("-P:puree:level:effects")
 scalacOptions += Seq("-P:puree:level:strict")
 ```
 
+# Disabling Puree selectively
+
+We also provide the `puree-api` library which provied an `@intended` annotation
+that users can use whenever they can disable checking for a chunk of code:
+
+```scala
+import com.tkroman.puree.annotation.intended
+
+@intended
+class GoingDirty {
+  def f(): Task[Int] = Task(1)
+  def g(): Int = {
+    f() // I mean... you asked for it
+    1
+  }
+}
+```
+This will compile fine.
 
 # Why
 
