@@ -182,7 +182,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
       check(a.symbol)
     } else if (a.isTerm) {
       check(a.tpe)
-    } else if (a.isDef) {
+    } else if (a.isDef && a.hasSymbolField) {
       check(a.symbol)
     } else {
       false
