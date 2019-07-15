@@ -44,7 +44,7 @@ scalacOptions += Seq("-P:puree:level:strict")
 
 # Disabling Puree selectively
 
-We also provide the `puree-api` library which provied an `@intended` annotation
+We also ship the `puree-api` package which provides an `@intended` annotation
 that users can use whenever they can disable checking for a chunk of code:
 
 ```scala
