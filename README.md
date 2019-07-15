@@ -3,6 +3,27 @@ A Scala compiler plugin to warn about unused effects
 
 [![CircleCI](https://circleci.com/gh/tkroman/puree.svg?style=svg)](https://circleci.com/gh/tkroman/puree)
 
+# sbt setup
+
+```scala
+libraryDependencies ++= Seq(
+  compilerPlugin("com.tkroman" %% "puree" % pureeV),
+  "com.tkroman" %% "puree-api" % pureeV % Provided
+)
+
+// very desirable
+scalacOptions ++= Seq(
+  "-Ywarn-unused:implicits",
+  "-Ywarn-unused:imports",
+  "-Ywarn-unused:locals",
+  "-Ywarn-unused:params",
+  "-Ywarn-unused:patvars",
+  "-Ywarn-unused:privates",
+  "-Werror",
+  "-Ywarn-value-discard",
+)
+```
+
 # Why
 
 ## Effects

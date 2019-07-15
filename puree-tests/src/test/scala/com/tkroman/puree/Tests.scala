@@ -22,7 +22,7 @@ class Tests extends AnyFunSuite {
     "-Ywarn-unused:params",
     "-Ywarn-unused:patvars",
     "-Ywarn-unused:privates",
-    "-Xfatal-warnings",
+    "-Werror",
     "-Ywarn-value-discard"
   )
 
