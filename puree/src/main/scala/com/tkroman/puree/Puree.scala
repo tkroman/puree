@@ -1,7 +1,5 @@
 package com.tkroman.puree
 
-import java.util.concurrent.ConcurrentHashMap
-import java.util.function
 import scala.annotation.tailrec
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
