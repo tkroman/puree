@@ -1,5 +1,7 @@
 package com.tkroman.puree
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.function
 import scala.annotation.tailrec
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
@@ -28,7 +30,9 @@ class Puree(val global: Global) extends Plugin {
   private val Usage: String =
     s"Available choices: ${AllLevels.keySet.mkString("|")}. Usage: -P:$name:$LevelKey:$$LEVEL"
 
-  var level: Int = Levels.Effects
+  private var level: Int = Levels.Effects
+
+  def getLevel: Int = level
 
   override def init(options: List[String], error: String => Unit): Boolean = {
     val suggestedLevel: Option[String] = options
@@ -70,9 +74,9 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
             case t if intended(t) =>
               false
             case Template(_, _, body) =>
-              !effectsFound(body)
+              noSuspiciousEffects(body)
             case Block(stats, _) =>
-              !effectsFound(stats)
+              noSuspiciousEffects(stats)
             case _ =>
               true
           }
@@ -83,19 +87,6 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
       }
       tt.traverse(unit.body)
     }
-  }
-
-  @tailrec
-  private def isSuperConstructorCall(t: Tree): Boolean = {
-    t match {
-      case Apply(Select(Super(This(_), _), _), _) => true
-      case Apply(nt, _)                           => isSuperConstructorCall(nt)
-      case _                                      => false
-    }
-  }
-
-  private def strict(): Boolean = {
-    puree.level == Levels.Strict
   }
 
   private def getEffect(a: Tree): Option[Type] = {
@@ -132,22 +123,22 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
   }
 
-  private def effectsFound(stats: List[Tree]): Boolean = {
-    def warnIfShould(e: Option[Type], warning: Type => Unit): Boolean = {
+  private def noSuspiciousEffects(stats: List[Tree]): Boolean = {
+    def isOkUsage(e: Option[Type], warning: Type => Unit): Boolean = {
       e match {
         case Some(a) =>
           warning(a)
-          true
-        case None =>
           false
+        case None =>
+          true
       }
     }
 
-    stats.exists {
+    stats.forall {
       case s if intended(s) =>
-        false
+        true
       case a: Apply =>
-        warnIfShould(
+        isOkUsage(
           getEffect(a),
           eff =>
             reporter.warning(
@@ -156,7 +147,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
             )
         )
       case t if t.isTerm =>
-        warnIfShould(
+        isOkUsage(
           getEffect(t),
           eff =>
             reporter.warning(
@@ -166,8 +157,21 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
         )
 
       case _ =>
-        false
+        true
     }
+  }
+
+  @tailrec
+  private def isSuperConstructorCall(t: Tree): Boolean = {
+    t match {
+      case Apply(Select(Super(This(_), _), _), _) => true
+      case Apply(nt, _)                           => isSuperConstructorCall(nt)
+      case _                                      => false
+    }
+  }
+
+  private def strict(): Boolean = {
+    puree.getLevel == Levels.Strict
   }
 
   private def intended(a: global.Tree): Boolean = {
