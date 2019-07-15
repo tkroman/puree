@@ -25,6 +25,24 @@ scalacOptions ++= Seq(
 )
 ```
 
+# Strictness configuration
+
+Puree supports (currently) 3 strictness levels:
+- `off`: Every check is disabled. Same as removing the plugin completely.
+- `effects`: Only `F[_*]` checks are performed
+- `strict`: Any non-unit expression that is not in the return position
+    (i.e. is not the last statement of the enclosing expression) is considered "unused" value.
+    This can be pretty hard on most code so should be enabled at one's own discretion.
+
+Default level is `effects`. To customize, use one of the following flags:
+
+```scala
+scalacOptions += Seq("-P:puree:level:off")
+scalacOptions += Seq("-P:puree:level:effects")
+scalacOptions += Seq("-P:puree:level:strict")
+```
+
+
 # Why
 
 ## Effects
