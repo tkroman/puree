@@ -1,6 +1,5 @@
 package com.tkroman.puree
 
-import java.io.{ByteArrayOutputStream, InputStream}
 import java.net.URL
 import scala.collection.immutable.Map
 import scala.collection.mutable
@@ -54,15 +53,6 @@ object PureeLevels {
     }
   }
 
-  private def parseLine(s: String): Either[PureeLevel, String] = {
-    s.trim match {
-      case "[off]"    => Left(PureeLevel.Off)
-      case "[effect]" => Left(PureeLevel.Effect)
-      case "[strict]" => Left(PureeLevel.Strict)
-      case entry      => Right(entry)
-    }
-  }
-
   private def parse(config: List[String]): Res = {
     try {
       // mutable & iteratorey, but very short and hopefully readable
@@ -89,6 +79,15 @@ object PureeLevels {
     }
   }
 
+  private def parseLine(s: String): Either[PureeLevel, String] = {
+    s.trim match {
+      case "[off]"    => Left(PureeLevel.Off)
+      case "[effect]" => Left(PureeLevel.Effect)
+      case "[strict]" => Left(PureeLevel.Strict)
+      case entry      => Right(entry)
+    }
+  }
+
   private def initCfg(entries: Iterator[String]): PureeLevel = {
     val hdLine: Either[PureeLevel, String] = parseLine(entries.next())
     hdLine match {
@@ -99,61 +98,4 @@ object PureeLevels {
         )
     }
   }
-
-  private def nextLevel(
-      currLevel: Option[PureeLevel],
-      lvlOrEntry: Either[PureeLevel, String]
-  ): PureeLevel = {
-    lvlOrEntry match {
-      case Right(_) =>
-        currLevel match {
-          case Some(lvl) => lvl
-          case None =>
-            throw new IllegalArgumentException(
-              "config must define a level first"
-            )
-        }
-      case Left(pl) => pl
-    }
-  }
-
-  private def parseSettingLine(
-      acc: MB,
-      lvl: Option[PureeLevel],
-      cfgLine: String
-  ): (MB, Some[PureeLevel]) = {
-    lvl match {
-      case None =>
-        throw new IllegalArgumentException(
-          "config should define a level first"
-        )
-      case Some(lvl) =>
-        val lvlAcc: ListBuffer[String] = acc.getOrElseUpdate(
-          lvl,
-          mutable.ListBuffer.empty[String]
-        )
-        lvlAcc += cfgLine
-        acc -> Some(lvl)
-
-    }
-  }
-
-  private def readInputStream(is: InputStream): Either[String, String] = {
-    try {
-      val baos: ByteArrayOutputStream = new ByteArrayOutputStream()
-      val data: Array[Byte] = Array.ofDim[Byte](2048)
-      var len: Int = 0
-      def read(): Int = { len = is.read(data); len }
-      while (read() != -1) {
-        baos.write(data, 0, len)
-      }
-      Right(baos.toString("UTF-8"))
-    } catch {
-      case t: Throwable =>
-        Left(t.getMessage)
-    } finally {
-      is.close()
-    }
-  }
-
 }
