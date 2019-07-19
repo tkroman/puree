@@ -27,7 +27,7 @@ class Puree(val global: Global) extends Plugin {
   override val description: String = "Warn about unused effects"
 
   private var level: PureeLevel = PureeLevel.Effect
-  private var config: PureeConfig = PureeConfig(Map.empty, PureeLevel.Effect)
+  private var config: PureeConfig = PureeConfig(Map.empty, level)
 
   override def init(options: List[String], error: String => Unit): Boolean = {
     val suggestedLevel: Option[String] = options
