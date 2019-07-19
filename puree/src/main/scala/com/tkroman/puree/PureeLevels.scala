@@ -9,13 +9,6 @@ import scala.io.{BufferedSource, Source}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-sealed trait PureeLevel
-object PureeLevel {
-  case object Off extends PureeLevel
-  case object Effect extends PureeLevel
-  case object Strict extends PureeLevel
-}
-
 final case class PureeLevels(
     detailed: Map[String, PureeLevel],
     default: PureeLevel
