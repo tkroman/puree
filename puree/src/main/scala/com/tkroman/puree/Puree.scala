@@ -5,16 +5,7 @@ import java.util.function
 import scala.annotation.tailrec
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
-import com.tkroman.puree.Puree.Levels
 import com.tkroman.puree.annotation.intended
-
-object Puree {
-  object Levels {
-    val Off: Int = 0
-    val Effects: Int = 1
-    val Strict: Int = 2
-  }
-}
 
 class Puree(val global: Global) extends Plugin {
   override val name: String = "puree"
@@ -22,22 +13,22 @@ class Puree(val global: Global) extends Plugin {
 
   private val DefaultLevel = "effects"
   private val LevelKey: String = "level"
-  private val AllLevels: Map[String, Int] = Map(
-    "off" -> Levels.Off,
-    DefaultLevel -> Levels.Effects,
-    "strict" -> Levels.Strict
+  private val AllLevels: Map[String, PureeLevel] = Map(
+    "off" -> PureeLevel.Off,
+    DefaultLevel -> PureeLevel.Effect,
+    "strict" -> PureeLevel.Strict
   )
   private val Usage: String =
     s"Available choices: ${AllLevels.keySet.mkString("|")}. Usage: -P:$name:$LevelKey:$$LEVEL"
 
-  private var level: Int = Levels.Effects
-
-  def getLevel: Int = level
+  private var level: PureeLevel = PureeLevel.Effect
+  private var config: PureeLevels = PureeLevels(Map.empty, PureeLevel.Effect)
 
   override def init(options: List[String], error: String => Unit): Boolean = {
     val suggestedLevel: Option[String] = options
       .find(_.startsWith(LevelKey))
       .map(_.stripPrefix(s"$LevelKey:"))
+
     suggestedLevel match {
       case Some(s) if AllLevels.isDefinedAt(s) =>
         level = AllLevels(s)
@@ -48,7 +39,28 @@ class Puree(val global: Global) extends Plugin {
       case None => // default
     }
 
-    level != Levels.Off
+    PureeLevels(level) match {
+      case Right(ok) =>
+        config = ok
+        (level != PureeLevel.Off) || (
+          config.detailed.nonEmpty && config.detailed.exists(
+            _._2 != PureeLevel.Off
+          )
+        )
+      case Left(err) =>
+        error(err)
+        false
+    }
+
+  }
+
+  def getLevel(x: Option[String]): PureeLevel = {
+    x match {
+      case Some(x) =>
+        config.detailed.getOrElse(x, config.default)
+      case None =>
+        config.default
+    }
   }
 
   override lazy val components: List[UnusedEffectDetector] = List(
@@ -107,7 +119,10 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
             tpe.safeToString,
             new function.Function[String, Option[Type]] {
               override def apply(t: String): Option[Type] = {
-                if (strict() && !(tpe =:= UnitType)) {
+                val scrName: Option[String] = scrutineeFullName(a)
+                if (isOff(scrName)) {
+                  None
+                } else if (isStrict(scrName) && !(tpe =:= UnitType)) {
                   // under strict settings we abort on any non-unit method
                   // (assuming unit is always side-effecting)
                   Some(tpe)
@@ -131,6 +146,25 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
             }
           )
         }
+    }
+  }
+
+  private def scrutineeFullName(a: global.Tree): Option[String] = {
+    a match {
+      case Apply(s: Select, _) =>
+        Some(
+          s.qualifier.symbol.tpe.typeSymbol.fullName + "." + s.symbol.nameString
+        )
+      case s: Select =>
+        Some(
+          s.qualifier.symbol.tpe.typeSymbol.fullName + "." + s.symbol.nameString
+        )
+      case i: Ident =>
+        Some(
+          i.qualifier.symbol.tpe.typeSymbol.fullName + "." + i.symbol.nameString
+        )
+      case _ =>
+        None
     }
   }
 
@@ -181,8 +215,12 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
   }
 
-  private def strict(): Boolean = {
-    puree.getLevel == Levels.Strict
+  private def isStrict(x: Option[String]): Boolean = {
+    puree.getLevel(x) == PureeLevel.Strict
+  }
+
+  private def isOff(x: Option[String]): Boolean = {
+    puree.getLevel(x) == PureeLevel.Off
   }
 
   private def intended(a: Tree): Boolean = {
