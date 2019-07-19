@@ -45,7 +45,15 @@ object PureeLevels {
   private def readResource(res: URL): Either[String, List[String]] = {
     val s: BufferedSource = Source.fromURL(res, "UTF-8")
     try {
-      Right(s.getLines().toList)
+      // filtering here although it's techinally part of the "format"
+      // so should be handled in the "parse" part
+      // but this way we don't have to filter after conversion to list
+      Right(
+        s.getLines()
+          .filterNot(_.isEmpty)
+          .filterNot(_.startsWith("#"))
+          .toList
+      )
     } catch {
       case NonFatal(e) => Left(e.getMessage)
     } finally {
@@ -55,23 +63,20 @@ object PureeLevels {
 
   private def parse(config: List[String]): Res = {
     try {
-      // mutable & iteratorey, but very short and hopefully readable
-      val entries: Iterator[String] = config.iterator
-        .filterNot(_.isEmpty)
-        .filterNot(_.startsWith("#"))
-
-      if (entries.isEmpty) {
-        Right(Map.empty)
-      } else {
-        val mb = Map.newBuilder[String, PureeLevel]
-        var lvl: PureeLevel = initCfg(entries)
-        entries.foreach { entry =>
-          parseLine(entry) match {
-            case Left(pl)   => lvl = pl
-            case Right(cfg) => mb += (cfg -> lvl)
+      // mutable but very short and hopefully readable
+      config match {
+        case Nil =>
+          Right(Map.empty)
+        case hd :: tl =>
+          var lvl: PureeLevel = initCfg(hd)
+          val mb = Map.newBuilder[String, PureeLevel]
+          tl.foreach { entry =>
+            parseLine(entry) match {
+              case Left(pl)   => lvl = pl
+              case Right(cfg) => mb += (cfg -> lvl)
+            }
           }
-        }
-        Right(mb.result())
+          Right(mb.result())
       }
     } catch {
       case t: Throwable =>
@@ -88,9 +93,8 @@ object PureeLevels {
     }
   }
 
-  private def initCfg(entries: Iterator[String]): PureeLevel = {
-    val hdLine: Either[PureeLevel, String] = parseLine(entries.next())
-    hdLine match {
+  private def initCfg(firstLine: String): PureeLevel = {
+    parseLine(firstLine) match {
       case Left(lvl) => lvl
       case Right(_) =>
         throw new IllegalArgumentException(
