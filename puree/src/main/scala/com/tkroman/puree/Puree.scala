@@ -5,12 +5,11 @@ import java.util.function
 import scala.annotation.tailrec
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
+import com.tkroman.puree.Puree._
 import com.tkroman.puree.annotation.intended
 
-class Puree(val global: Global) extends Plugin {
-  override val name: String = "puree"
-  override val description: String = "Warn about unused effects"
-
+object Puree {
+  private val Name = "puree"
   private val DefaultLevel = "effects"
   private val LevelKey: String = "level"
   private val AllLevels: Map[String, PureeLevel] = Map(
@@ -19,7 +18,13 @@ class Puree(val global: Global) extends Plugin {
     "strict" -> PureeLevel.Strict
   )
   private val Usage: String =
-    s"Available choices: ${AllLevels.keySet.mkString("|")}. Usage: -P:$name:$LevelKey:$$LEVEL"
+    s"Available choices: ${AllLevels.keySet.mkString("|")}. Usage: -P:$Name:$LevelKey:$$LEVEL"
+
+}
+
+class Puree(val global: Global) extends Plugin {
+  override val name: String = Name
+  override val description: String = "Warn about unused effects"
 
   private var level: PureeLevel = PureeLevel.Effect
   private var config: PureeLevels = PureeLevels(Map.empty, PureeLevel.Effect)
@@ -33,20 +38,15 @@ class Puree(val global: Global) extends Plugin {
       case Some(s) if AllLevels.isDefinedAt(s) =>
         level = AllLevels(s)
       case Some(s) =>
-        error(
-          s"Puree: invalid strictness level [$s]. $Usage"
-        )
-      case None => // default
+        error(s"Puree: invalid strictness level [$s]. $Usage")
+      case None =>
+      // default
     }
 
     PureeLevels(level) match {
       case Right(ok) =>
         config = ok
-        (level != PureeLevel.Off) || (
-          config.detailed.nonEmpty && config.detailed.exists(
-            _._2 != PureeLevel.Off
-          )
-        )
+        defaultEnabled || atLeastOneIndividualEnabled
       case Left(err) =>
         error(err)
         false
@@ -66,6 +66,15 @@ class Puree(val global: Global) extends Plugin {
   override lazy val components: List[UnusedEffectDetector] = List(
     new UnusedEffectDetector(this, global)
   )
+
+  private def atLeastOneIndividualEnabled: Boolean = {
+    config.detailed.exists(_._2 != PureeLevel.Off)
+  }
+
+  private def defaultEnabled: Boolean = {
+    level != PureeLevel.Off
+  }
+
 }
 
 class UnusedEffectDetector(puree: Puree, val global: Global)
@@ -105,69 +114,6 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
   }
 
-  private def getEffect(a: Tree): Option[Type] = {
-    a match {
-      case _ if isSuperConstructorCall(a) =>
-        // in constructors, calling super.<init>
-        // when super is an F[_, _*] is seen as an
-        // unassigned effectful value :(
-        None
-
-      case _ =>
-        Option(a.tpe).flatMap { tpe =>
-          cache.computeIfAbsent(
-            tpe.safeToString,
-            new function.Function[String, Option[Type]] {
-              override def apply(t: String): Option[Type] = {
-                val scrName: Option[String] = scrutineeFullName(a)
-                if (isOff(scrName)) {
-                  None
-                } else if (isStrict(scrName) && !(tpe =:= UnitType)) {
-                  // under strict settings we abort on any non-unit method
-                  // (assuming unit is always side-effecting)
-                  Some(tpe)
-                } else if (tpe.typeSymbol.typeParams.nonEmpty) {
-                  Some(tpe)
-                } else {
-                  val bts: List[Type] = tpe.baseTypeSeq.toList
-                  // looking at basetypeseq b/c None is an Option[A]
-                  if (bts.exists(bt => bt.typeSymbol.isSealed)) {
-                    bts.find(bt => bt.typeSymbol.typeParams.nonEmpty)
-                  } else {
-                    // Only F-bounded because if we just look for
-                    // ANY non-empty F[_] in baseTypeSeq b/c
-                    // e.g. String is Comparable[String] :/
-                    // FIXME: is it better to list (and allow for configuration)
-                    // FIXME: the set of "ok" F[_]s? Comparable etc
-                    bts.find(_.typeSymbol.typeParams.exists(_.isFBounded))
-                  }
-                }
-              }
-            }
-          )
-        }
-    }
-  }
-
-  private def scrutineeFullName(a: global.Tree): Option[String] = {
-    a match {
-      case Apply(s: Select, _) =>
-        Some(
-          s.qualifier.symbol.tpe.typeSymbol.fullName + "." + s.symbol.nameString
-        )
-      case s: Select =>
-        Some(
-          s.qualifier.symbol.tpe.typeSymbol.fullName + "." + s.symbol.nameString
-        )
-      case i: Ident =>
-        Some(
-          i.qualifier.symbol.tpe.typeSymbol.fullName + "." + i.symbol.nameString
-        )
-      case _ =>
-        None
-    }
-  }
-
   private def noSuspiciousEffects(stats: List[Tree]): Boolean = {
     def isOkUsage(e: Option[Type], warning: Type => Unit): Boolean = {
       e match {
@@ -203,6 +149,67 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
       case _ =>
         true
+    }
+  }
+
+  private def getEffect(a: Tree): Option[Type] = {
+    a match {
+      case _ if isSuperConstructorCall(a) =>
+        // in constructors, calling super.<init>
+        // when super is an F[_, _*] is seen as an
+        // unassigned effectful value :(
+        None
+
+      case _ =>
+        Option(a.tpe).flatMap { tpe =>
+          cache.computeIfAbsent(
+            tpe.safeToString,
+            new function.Function[String, Option[Type]] {
+              override def apply(t: String): Option[Type] = {
+                scrutinize(a, tpe)
+              }
+            }
+          )
+        }
+    }
+  }
+
+  private def scrutinize(a: Tree, tpe: Type): Option[Type] = {
+    val scrName: Option[String] = scrutineeFullName(a)
+    if (isOff(scrName)) {
+      None
+    } else if (isStrict(scrName) && !(tpe =:= UnitType)) {
+      // under strict settings we abort on any non-unit method
+      // (assuming unit is always side-effecting)
+      Some(tpe)
+    } else if (tpe.typeSymbol.typeParams.nonEmpty) {
+      Some(tpe)
+    } else {
+      val bts: List[Type] = tpe.baseTypeSeq.toList
+      // looking at basetypeseq b/c None is an Option[A]
+      if (bts.exists(bt => bt.typeSymbol.isSealed)) {
+        bts.find(bt => bt.typeSymbol.typeParams.nonEmpty)
+      } else {
+        // Only F-bounded because if we just look for
+        // ANY non-empty F[_] in baseTypeSeq b/c
+        // e.g. String is Comparable[String] :/
+        // FIXME: is it better to list (and allow for configuration)
+        // FIXME: the set of "ok" F[_]s? Comparable etc
+        bts.find(_.typeSymbol.typeParams.exists(_.isFBounded))
+      }
+    }
+  }
+
+  private def ourFqn(scr: RefTreeApi with SymTreeApi): String = {
+    scr.qualifier.symbol.tpe.typeSymbol.fullName + "." + scr.symbol.nameString
+  }
+
+  private def scrutineeFullName(a: Tree): Option[String] = {
+    a match {
+      case Apply(s: Select, _) => Some(ourFqn(s))
+      case s: Select           => Some(ourFqn(s))
+      case i: Ident            => Some(ourFqn(i))
+      case _                   => None
     }
   }
 
