@@ -8,18 +8,18 @@ import scala.io.{BufferedSource, Source}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-final case class PureeLevels(
+final case class PureeConfig(
     detailed: Map[String, PureeLevel],
     default: PureeLevel
 )
 
-object PureeLevels {
+object PureeConfig {
   private type Levels = Map[String, PureeLevel]
   private type Res = Either[String, Levels]
   private type MB = mutable.Map[PureeLevel, ListBuffer[String]]
 
-  def apply(default: PureeLevel): Either[String, PureeLevels] = {
-    levels.map(PureeLevels(_, default))
+  def apply(default: PureeLevel): Either[String, PureeConfig] = {
+    levels.map(PureeConfig(_, default))
   }
 
   private lazy val levels: Either[String, Map[String, PureeLevel]] = {
