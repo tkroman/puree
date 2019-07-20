@@ -85,7 +85,7 @@ individual suppression via `@intended`.
 If there is a `puree-settings` file on a compilation classpath,
 fine-grained settings will be read from it. File format:
 
-```toml
+```
 [off]
 foo.bar.Baz.::=
 
@@ -110,7 +110,7 @@ buf.result()
 
 will be flagged as suspicious. To avoid this, just configure puree with this:
 
-```toml
+```
 [off]
 scala.collection.mutable.Builder.+=
 ```
@@ -121,7 +121,7 @@ a warning will still be raised with on `Growable` instances invoking `+=`.
 
 It's possible to always warn on select methods even if a global level is `off`:
 
-```toml
+```
 [strict]
 scala.collection.mutable.Builder.+=
 ```
