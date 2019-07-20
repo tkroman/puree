@@ -26,8 +26,8 @@ class Puree(val global: Global) extends Plugin {
   override val name: String = Name
   override val description: String = "Warn about unused effects"
 
-  private var level: PureeLevel = PureeLevel.Effect
-  private var config: PureeConfig = PureeConfig(Map.empty, level)
+  private var globalLevel: PureeLevel = PureeLevel.Effect
+  private var config: PureeConfig = PureeConfig(Map.empty, globalLevel)
 
   override def init(options: List[String], error: String => Unit): Boolean = {
     val suggestedLevel: Option[String] = options
@@ -36,14 +36,14 @@ class Puree(val global: Global) extends Plugin {
 
     suggestedLevel match {
       case Some(s) if AllLevels.isDefinedAt(s) =>
-        level = AllLevels(s)
+        globalLevel = AllLevels(s)
       case Some(s) =>
         error(s"Puree: invalid strictness level [$s]. $Usage")
       case None =>
       // default
     }
 
-    PureeConfig(level) match {
+    PureeConfig(globalLevel) match {
       case Right(ok) =>
         config = ok
         defaultEnabled || atLeastOneIndividualEnabled
@@ -57,9 +57,9 @@ class Puree(val global: Global) extends Plugin {
   def getLevel(x: Option[String]): PureeLevel = {
     x match {
       case Some(x) =>
-        config.detailed.getOrElse(x, config.default)
+        config.detailed.getOrElse(x, config.global)
       case None =>
-        config.default
+        config.global
     }
   }
 
@@ -72,7 +72,7 @@ class Puree(val global: Global) extends Plugin {
   }
 
   private def defaultEnabled: Boolean = {
-    level != PureeLevel.Off
+    globalLevel != PureeLevel.Off
   }
 
 }

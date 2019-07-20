@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 final case class PureeConfig(
     detailed: Map[String, PureeLevel],
-    default: PureeLevel
+    global: PureeLevel
 )
 
 object PureeConfig {
