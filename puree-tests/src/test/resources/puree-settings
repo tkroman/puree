@@ -1,0 +1,7 @@
+[off]
+scala.collection.mutable.Builder.+=
+
+[effect]
+
+[strict]
+

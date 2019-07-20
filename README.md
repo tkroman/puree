@@ -25,23 +25,6 @@ scalacOptions ++= Seq(
 )
 ```
 
-# Strictness configuration
-
-Puree supports (currently) 3 strictness levels:
-- `off`: Every check is disabled. Same as removing the plugin completely.
-- `effects`: Only `F[_*]` checks are performed
-- `strict`: Any non-unit expression that is not in the return position
-    (i.e. is not the last statement of the enclosing expression) is considered "unused" value.
-    This can be pretty hard on most code so should be enabled at one's own discretion.
-
-Default level is `effects`. To customize, use one of the following flags:
-
-```scala
-scalacOptions += Seq("-P:puree:level:off")
-scalacOptions += Seq("-P:puree:level:effects")
-scalacOptions += Seq("-P:puree:level:strict")
-```
-
 # Disabling Puree selectively
 
 We also ship the `puree-api` package which provides an `@intended` annotation
@@ -75,6 +58,75 @@ buf.result()
 
 In future some of these use-cases may be heuristically solved by the library
 but at this point we prefer to remain as flexible as possible.
+
+# Strictness configuration
+
+Puree supports (currently) 3 strictness levels:
+- `off`: Every check is disabled. Same as removing the plugin completely.
+- `effects`: Only `F[_*]` checks are performed
+- `strict`: Any non-unit expression that is not in the return position
+    (i.e. is not the last statement of the enclosing expression) is considered "unused" value.
+    This can be pretty hard on most code so should be enabled at one's own discretion.
+
+Default level is `effects`. To customize, use one of the following flags:
+
+```scala
+scalacOptions += Seq("-P:puree:level:off")
+scalacOptions += Seq("-P:puree:level:effects")
+scalacOptions += Seq("-P:puree:level:strict")
+```
+
+# Fine-grained control
+
+It is possible to override behavior for individual methods, which is useful
+when users want to override some behavior on a system-wide level without
+individual suppression via `@intended`.
+
+If there is a `puree-settings` file on a compilation classpath,
+fine-grained settings will be read from it. File format:
+
+```
+[off]
+foo.bar.Baz.::=
+
+[effect]
+foo.bar.Quux.methodName
+
+[strict]
+foo.bar.Quack.::
+```
+
+Each section is optional.
+
+Motivation: e.g. `scala.collection.mutable.Builder.+=` method returns
+`this.type` for each builder instance, and since `Builder` is an `F[_, _]`,
+code like
+
+```scala
+val buf = List.newBuilder[Int]
+buf += 1
+buf.result()
+```
+
+will be flagged as suspicious. To avoid this, just configure puree with this:
+
+```
+[off]
+scala.collection.mutable.Builder.+=
+```
+
+No subtyping checks are performed as of now,
+so even though `Builder` is a subtype of `Growable`,
+a warning will still be raised with on `Growable` instances invoking `+=`.
+
+It's possible to always warn on select methods even if a global level is `off`:
+
+```
+[strict]
+scala.collection.mutable.Builder.+=
+```
+
+means that `+=` invocations will _aways_ trigger warnings.
 
 # Why
 
