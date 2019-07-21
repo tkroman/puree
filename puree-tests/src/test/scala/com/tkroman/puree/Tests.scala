@@ -139,7 +139,6 @@ class Tests extends AnyFunSuite {
       pos: Boolean,
       compiler: MyGlobal
   ): List[(Path, Either[String, Unit])] = {
-    compiler.settings.warnUnusedExplicits
     fs.map(p => p -> compileFile(p, pos, compiler))
   }
 

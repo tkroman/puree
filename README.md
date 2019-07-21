@@ -117,7 +117,7 @@ scala.collection.mutable.Builder.+=
 
 Subtyping checks are performed as expected, so e.g. since `Builder` is a subtype
 of `Growable`, a warning will not be raised on `Builder` instances invoking `+=`
-if `Growable.+=` is set to `Off` in settings.
+if `Growable.+=`'s level is set to `Off` in settings.
 
 It's possible to always warn on select methods even if a global level is `Off`:
 
