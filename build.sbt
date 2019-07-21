@@ -17,8 +17,12 @@ ThisBuild / homepage := Some(url("http://github.com/tkroman/puree"))
 ThisBuild / scalaVersion := scala213
 ThisBuild / sonatypeProfileName := "com.tkroman"
 ThisBuild / publishMavenStyle := true
-ThisBuild / licenses := Seq("MIT" -> url("https://github.com/tkroman/puree/blob/master/LICENSE"))
-ThisBuild / sonatypeProjectHosting := Some(GitHubHosting("tkroman", "puree", "rmn.tk.ml@gmail.com"))
+ThisBuild / licenses := Seq(
+  "MIT" -> url("https://github.com/tkroman/puree/blob/master/LICENSE")
+)
+ThisBuild / sonatypeProjectHosting := Some(
+  GitHubHosting("tkroman", "puree", "rmn.tk.ml@gmail.com")
+)
 
 lazy val testSettings = Seq(
   libraryDependencies ++= Seq(
@@ -35,18 +39,56 @@ lazy val testSettings = Seq(
   },
   Test / scalacOptions ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 11)) => Seq.empty
+      case Some((2, 11)) | Some((2, 12)) => Seq.empty
       case _ =>
         Seq(
-          "-deprecation",
+          "-encoding",
+          "utf-8",
+          "-explaintypes",
           "-feature",
-          "-Ywarn-unused:implicits",
-          "-Ywarn-unused:imports",
-          "-Ywarn-unused:locals",
-          "-Ywarn-unused:params",
-          "-Ywarn-unused:patvars",
-          "-Ywarn-unused:privates",
-          "-Xfatal-warnings"
+          "-language:existentials",
+          "-language:experimental.macros",
+          "-language:higherKinds",
+          "-language:implicitConversions",
+          "-unchecked",
+          "-Xcheckinit",
+          "-Xsource:2.14",
+          "-Xlint:adapted-args",
+          "-Xlint:constant",
+          "-Xlint:delayedinit-select",
+          "-Xlint:doc-detached",
+          "-Xlint:inaccessible",
+          "-Xlint:infer-any",
+          "-Xlint:missing-interpolator",
+          "-Xlint:nullary-override",
+          "-Xlint:nullary-unit",
+          "-Xlint:option-implicit",
+          "-Xlint:package-object-classes",
+          "-Xlint:poly-implicit-overload",
+          "-Xlint:private-shadow",
+          "-Xlint:stars-align",
+          "-Xlint:type-parameter-shadow",
+          "-Xlint:nonlocal-return",
+          "-Xlint:valpattern",
+          "-Xlint:eta-zero",
+          "-Xlint:eta-sam",
+          "-Xlint:deprecation",
+          "-Werror",
+          "-Wdead-code",
+          "-Wextra-implicit",
+          "-Wself-implicit",
+          "-Wnumeric-widen",
+          "-Woctal-literal",
+          "-Wunused:implicits",
+          "-Wunused:locals",
+          "-Wunused:params",
+          "-Wunused:patvars",
+          "-Wunused:privates",
+          "-Wunused:imports",
+          "-Wunused:privates",
+          "-Wunused:explicits",
+          "-Wunused:linted",
+          "-Wvalue-discard",
         )
     }
   },
@@ -57,7 +99,7 @@ lazy val pureeRoot = (project in file("."))
   .aggregate(puree, pureeApi, pureeTests)
   .settings(
     publish / skip := true,
-    publishArtifact := false,
+    publishArtifact := false
   )
 
 lazy val pureeApi = (project in file("puree-api"))
@@ -72,7 +114,9 @@ lazy val pureeApi = (project in file("puree-api"))
       GitHubHosting("tkroman", "puree", "rmn.tk.ml@gmail.com")
     ),
     publishMavenStyle := true,
-    pomIncludeRepository := { _ => false },
+    pomIncludeRepository := { _ =>
+      false
+    }
   )
 
 lazy val puree = (project in file("puree"))
@@ -81,11 +125,13 @@ lazy val puree = (project in file("puree"))
     name := "puree",
     crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= Seq(
-      scalaOrganization.value % "scala-compiler" % scalaVersion.value,
+      scalaOrganization.value % "scala-compiler" % scalaVersion.value
     ),
     publishTo := sonatypePublishTo.value,
     publishMavenStyle := true,
-    pomIncludeRepository := { _ => false },
+    pomIncludeRepository := { _ =>
+      false
+    },
     sonatypeProjectHosting := Some(
       GitHubHosting("tkroman", "puree", "rmn.tk.ml@gmail.com")
     )
@@ -99,6 +145,6 @@ lazy val pureeTests = (project in file("puree-tests"))
     libraryDependencies ++= Seq(
       scalaOrganization.value % "scala-compiler" % scalaVersion.value % Test
     ),
-    fork in Test := true,
+    fork in Test := true
   )
   .settings(testSettings)

@@ -3,12 +3,10 @@ package com.tkroman.puree
 import java.util.concurrent.ConcurrentHashMap
 import java.util.function
 import scala.annotation.tailrec
-import scala.language.higherKinds
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
 import com.tkroman.puree.Puree._
 import com.tkroman.puree.annotation.intended
-import sun.misc.LRUCache
 
 object Puree {
   private val Name = "puree"
