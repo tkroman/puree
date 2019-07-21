@@ -4,7 +4,11 @@ lazy val scala213 = "2.13.0"
 lazy val scala212 = "2.12.8"
 lazy val scala211 = "2.11.12"
 
-lazy val supportedScalaVersions = List(scala211, scala212, scala213)
+// temporary not supporting 2.11-2.12 since i want
+// to get the functionality first before doing this
+lazy val supportedScalaVersions =
+  // List(scala211, scala212, scala213)
+  List(scala213)
 
 ThisBuild / organization := "com.tkroman"
 ThisBuild / version := "0.0.11"
@@ -77,7 +81,7 @@ lazy val puree = (project in file("puree"))
     name := "puree",
     crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= Seq(
-      scalaOrganization.value % "scala-compiler" % scalaVersion.value
+      scalaOrganization.value % "scala-compiler" % scalaVersion.value,
     ),
     publishTo := sonatypePublishTo.value,
     publishMavenStyle := true,
