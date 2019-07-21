@@ -3,10 +3,12 @@ package com.tkroman.puree
 import java.util.concurrent.ConcurrentHashMap
 import java.util.function
 import scala.annotation.tailrec
+import scala.language.higherKinds
 import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 import scala.tools.nsc.{Global, Phase}
 import com.tkroman.puree.Puree._
 import com.tkroman.puree.annotation.intended
+import sun.misc.LRUCache
 
 object Puree {
   private val Name = "puree"
@@ -100,11 +102,16 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
       }
       .to(List)
 
+  private type Cache[A] = ConcurrentHashMap[String, A]
+
   // avoid expensive lookups per type
   // (e.g. for some types we do baseTypeSeq lookups
   // to figure out if they look effect-ey)
-  private val typeCache: ConcurrentHashMap[String, Option[Type]] =
-    new ConcurrentHashMap[String, Option[Type]]()
+  private val effectTypeCache: Cache[Option[Type]] =
+    new Cache[Option[Type]]()
+
+  private val supertypeLevelCheckCache: Cache[Option[PureeLevel]] =
+    new Cache[Option[PureeLevel]]()
 
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
     override def apply(unit: CompilationUnit): Unit = {
@@ -177,7 +184,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
       case _ =>
         Option(a.tpe).flatMap { tpe =>
-          typeCache.computeIfAbsent(
+          effectTypeCache.computeIfAbsent(
             tpe.safeToString,
             new function.Function[String, Option[Type]] {
               override def apply(t: String): Option[Type] = {
@@ -273,12 +280,21 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
       treeType: Type,
       targetLevel: PureeLevel
   ): Option[Boolean] = {
-    configuredLevels.collectFirst {
-      case (parent, (member, level))
-          if treeType.typeSymbol.isSubClass(parent.tpe.typeSymbol) &&
-            parent.info.member(encode(member)) != NoSymbol =>
-        level == targetLevel
-    }
+    supertypeLevelCheckCache
+      .computeIfAbsent(
+        treeType.typeSymbol.fullNameString,
+        new function.Function[String, Option[PureeLevel]] {
+          override def apply(t: String): Option[PureeLevel] = {
+            configuredLevels.collectFirst {
+              case (parent, (member, level))
+                  if treeType.typeSymbol.isSubClass(parent.tpe.typeSymbol) &&
+                    parent.info.member(encode(member)) != NoSymbol =>
+                level
+            }
+          }
+        }
+      )
+      .map(_ == targetLevel)
   }
 
   private def intended(t: Tree): Boolean = {
