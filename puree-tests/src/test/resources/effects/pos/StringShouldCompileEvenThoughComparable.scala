@@ -1,5 +1,5 @@
 // string <: comparable[String]
-object String {
+object StringShouldCompileEvenThoughComparable {
   def g(): String = ""
   def f(): Unit = {
     g()

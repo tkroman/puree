@@ -1,6 +1,6 @@
 [off]
-scala.collection.mutable.Builder.+=
-
+// scala.collection.mutable.Builder.+=
+scala.collection.mutable.Growable.+=
 [effect]
 
 [strict]

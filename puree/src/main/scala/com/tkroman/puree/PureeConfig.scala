@@ -52,6 +52,7 @@ object PureeConfig {
         s.getLines()
           .filterNot(_.isEmpty)
           .filterNot(_.startsWith("#"))
+          .filterNot(_.startsWith("//"))
           .toList
       )
     } catch {

@@ -26,8 +26,10 @@ class Puree(val global: Global) extends Plugin {
   override val name: String = Name
   override val description: String = "Warn about unused effects"
 
-  private var globalLevel: PureeLevel = PureeLevel.Effect
-  private var config: PureeConfig = PureeConfig(Map.empty, globalLevel)
+  private var globalLevel: PureeLevel = _
+  private var config: PureeConfig = _
+
+  def getConfig: PureeConfig = config
 
   override def init(options: List[String], error: String => Unit): Boolean = {
     val suggestedLevel: Option[String] = options
@@ -87,8 +89,21 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
   private val UnitType: Type = typeOf[Unit]
 
-  // avoid expensive lookups
-  private val cache: ConcurrentHashMap[String, Option[Type]] =
+  // lazy b/c init() is called _after_ this class is created
+  // (or i think so based on a fact that this was not properly initialized w/o lazy)
+  private lazy val configuredLevels: List[(ClassSymbol, (String, PureeLevel))] =
+    puree.getConfig.detailed
+      .map {
+        case (e: String, l: PureeLevel) =>
+          val (tpeName, memberName) = e.splitAt(e.lastIndexOf("."))
+          rootMirror.getClassByName(tpeName) -> (memberName.substring(1) -> l)
+      }
+      .to(List)
+
+  // avoid expensive lookups per type
+  // (e.g. for some types we do baseTypeSeq lookups
+  // to figure out if they look effect-ey)
+  private val typeCache: ConcurrentHashMap[String, Option[Type]] =
     new ConcurrentHashMap[String, Option[Type]]()
 
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
@@ -162,7 +177,7 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
 
       case _ =>
         Option(a.tpe).flatMap { tpe =>
-          cache.computeIfAbsent(
+          typeCache.computeIfAbsent(
             tpe.safeToString,
             new function.Function[String, Option[Type]] {
               override def apply(t: String): Option[Type] = {
@@ -175,10 +190,9 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
   }
 
   private def scrutinize(a: Tree, tpe: Type): Option[Type] = {
-    val scrName: Option[String] = scrutineeFullName(a)
-    if (isOff(scrName)) {
+    if (isOff(a, tpe)) {
       None
-    } else if (isStrict(scrName) && !(tpe =:= UnitType)) {
+    } else if (isStrict(a, tpe) && !(tpe =:= UnitType)) {
       // under strict settings we abort on any non-unit method
       // (assuming unit is always side-effecting)
       Some(tpe)
@@ -200,15 +214,21 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
   }
 
-  private def ourFqn(scr: RefTreeApi with SymTreeApi): String = {
-    scr.qualifier.symbol.tpe.typeSymbol.fullName + "." + scr.symbol.nameString
+  // probably weird and already solved somewhere
+  private def fqnByClass(scr: RefTreeApi with SymTreeApi): Option[String] = {
+    if (scr.qualifier.hasSymbolField) {
+      val outerName: String = scr.qualifier.symbol.tpe.typeSymbol.fullName
+      val symName: String = scr.symbol.nameString
+      Some(s"$outerName.$symName")
+    } else {
+      None
+    }
   }
 
-  private def scrutineeFullName(a: Tree): Option[String] = {
+  private def scrutineeFullNameWithTerm(a: Tree): Option[String] = {
     a match {
-      case Apply(s: Select, _) => Some(ourFqn(s))
-      case s: Select           => Some(ourFqn(s))
-      case i: Ident            => Some(ourFqn(i))
+      case Apply(s: Select, _) => fqnByClass(s)
+      case s: Select           => fqnByClass(s)
       case _                   => None
     }
   }
@@ -222,24 +242,55 @@ class UnusedEffectDetector(puree: Puree, val global: Global)
     }
   }
 
-  private def isStrict(x: Option[String]): Boolean = {
-    puree.getLevel(x) == PureeLevel.Strict
+  private def isStrict(t: Tree, tp: Type): Boolean = {
+    hasConfiguredLevel(t, tp, PureeLevel.Strict)
   }
 
-  private def isOff(x: Option[String]): Boolean = {
-    puree.getLevel(x) == PureeLevel.Off
+  private def isOff(t: Tree, tp: Type): Boolean = {
+    hasConfiguredLevel(t, tp, PureeLevel.Off)
   }
 
-  private def intended(a: Tree): Boolean = {
+  private def hasConfiguredLevel(
+      tree: Tree,
+      treeType: Type,
+      targetLevel: PureeLevel
+  ): Boolean = {
+    checkExactMatch(tree, targetLevel)
+      .orElse(checkSupertypes(treeType, targetLevel))
+      .getOrElse(puree.getConfig.global == targetLevel)
+  }
+
+  private def checkExactMatch(
+      tree: Tree,
+      targetLevel: PureeLevel
+  ): Option[Boolean] = {
+    scrutineeFullNameWithTerm(tree)
+      .flatMap(puree.getConfig.detailed.get)
+      .map(_ == targetLevel)
+  }
+
+  private def checkSupertypes(
+      treeType: Type,
+      targetLevel: PureeLevel
+  ): Option[Boolean] = {
+    configuredLevels.collectFirst {
+      case (parent, (member, level))
+          if treeType.typeSymbol.isSubClass(parent.tpe.typeSymbol) &&
+            parent.info.member(encode(member)) != NoSymbol =>
+        level == targetLevel
+    }
+  }
+
+  private def intended(t: Tree): Boolean = {
     def check(scrutinee: Annotatable[_]): Boolean =
       scrutinee.annotations.exists(_.tpe == typeOf[intended])
 
-    if (a.isType && a.hasSymbolField) {
-      check(a.symbol)
-    } else if (a.isTerm) {
-      check(a.tpe)
-    } else if (a.isDef && a.hasSymbolField) {
-      check(a.symbol)
+    if (t.isType && t.hasSymbolField) {
+      check(t.symbol)
+    } else if (t.isTerm) {
+      check(t.tpe)
+    } else if (t.isDef && t.hasSymbolField) {
+      check(t.symbol)
     } else {
       false
     }
