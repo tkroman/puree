@@ -37,7 +37,7 @@ lazy val testSettings = Seq(
     val jar = (puree / Compile / packageBin).value
     Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile
   },
-  Test / scalacOptions ++= {
+  ThisBuild / scalacOptions ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 11)) | Some((2, 12)) => Seq.empty
       case _ =>
@@ -52,7 +52,7 @@ lazy val testSettings = Seq(
           "-language:implicitConversions",
           "-unchecked",
           "-Xcheckinit",
-          "-Xsource:2.14",
+          // "-Xsource:2.14", // too quirky
           "-Xlint:adapted-args",
           "-Xlint:constant",
           "-Xlint:delayedinit-select",
