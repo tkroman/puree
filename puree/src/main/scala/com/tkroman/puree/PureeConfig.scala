@@ -2,8 +2,6 @@ package com.tkroman.puree
 
 import java.net.URL
 import scala.collection.immutable.Map
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 import scala.io.{BufferedSource, Source}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
@@ -16,7 +14,6 @@ final case class PureeConfig(
 object PureeConfig {
   private type Levels = Map[String, PureeLevel]
   private type Res = Either[String, Levels]
-  private type MB = mutable.Map[PureeLevel, ListBuffer[String]]
 
   def apply(default: PureeLevel): Either[String, PureeConfig] = {
     levels.map(PureeConfig(_, default))
@@ -52,6 +49,7 @@ object PureeConfig {
         s.getLines()
           .filterNot(_.isEmpty)
           .filterNot(_.startsWith("#"))
+          .filterNot(_.startsWith("//"))
           .toList
       )
     } catch {

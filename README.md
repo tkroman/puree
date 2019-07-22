@@ -115,11 +115,11 @@ will be flagged as suspicious. To avoid this, just configure puree with this:
 scala.collection.mutable.Builder.+=
 ```
 
-No subtyping checks are performed as of now,
-so even though `Builder` is a subtype of `Growable`,
-a warning will still be raised with on `Growable` instances invoking `+=`.
+Subtyping checks are performed as expected, so e.g. since `Builder` is a subtype
+of `Growable`, a warning will not be raised on `Builder` instances invoking `+=`
+if `Growable.+=`'s level is set to `Off` in settings.
 
-It's possible to always warn on select methods even if a global level is `off`:
+It's possible to always warn on select methods even if a global level is `Off`:
 
 ```
 [strict]
