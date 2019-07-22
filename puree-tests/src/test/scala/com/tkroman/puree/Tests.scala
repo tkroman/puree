@@ -38,7 +38,7 @@ class Tests extends AnyFunSuite {
       .collect(Collectors.toList[Path])
       .asScala
       .toList
-      .filterNot(_.getFileName.toString.endsWith(".ignore"))
+      .filterNot(_.getFileName.endsWith(".ignore"))
   }
 
   def compileAll(
