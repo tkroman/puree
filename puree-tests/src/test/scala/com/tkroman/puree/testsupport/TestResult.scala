@@ -1,5 +1,6 @@
 package com.tkroman.puree.testsupport
 
+import org.scalactic.source.Position
 import org.scalatest.{Assertion, Assertions}
 
 sealed trait TestResult extends Assertions {
@@ -10,16 +11,16 @@ object TestResult {
     override def get: Assertion =
       succeed
   }
-  case class FailedPos(msg: String) extends TestResult {
+  case class FailedPos(msg: String)(pos: Position) extends TestResult {
     override def get: Assertion =
-      fail(s"Failed to compile due to\n$msg")
+      fail(s"Failed to compile:\n$msg")(pos)
   }
-  case object FailedNeg extends TestResult {
+  case class FailedNeg(pos: Position) extends TestResult {
     override def get: Assertion =
-      fail(s"Compiled successfully but expected to fail")
+      fail(s"Compiled successfully but expected to fail")(pos)
   }
-  case class Error(err: Exception) extends TestResult {
+  case class Error(err: Exception)(pos: Position) extends TestResult {
     override def get: Assertion =
-      fail("Test run failed", err)
+      fail("Test run failed", err)(pos)
   }
 }

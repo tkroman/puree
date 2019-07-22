@@ -10,6 +10,7 @@ import scala.tools.nsc.util.ClassPath
 import scala.tools.nsc.{Global, Settings}
 import com.tkroman.puree.Puree
 import com.tkroman.puree.annotation.intended
+import org.scalactic.source.Position
 
 class PureeGlobal(pureeSettings: Settings, pureeReporter: StoreReporter)
     extends Global(pureeSettings, pureeReporter) {
@@ -24,6 +25,7 @@ class PureeGlobal(pureeSettings: Settings, pureeReporter: StoreReporter)
       path: Path,
       expectSuccess: Boolean
   ): TestResult = {
+    val pos = Position(path.getFileName.toString, path.toString, 0)
     try {
       pureeReporter.reset()
       new Run().compileSources(List(getSourceFile(path.toString)))
@@ -33,13 +35,15 @@ class PureeGlobal(pureeSettings: Settings, pureeReporter: StoreReporter)
         case (false, true) | (true, false) =>
           TestResult.Ok
         case (true, true) =>
-          TestResult.FailedPos(pureeReporter.infos.map(_.msg).mkString("\n"))
+          val compilationMessages: String =
+            pureeReporter.infos.map(_.msg).mkString("\n")
+          TestResult.FailedPos(compilationMessages)(pos)
         case (false, false) =>
-          TestResult.FailedNeg
+          TestResult.FailedNeg(pos)
       }
     } catch {
       case e: Exception =>
-        TestResult.Error(e)
+        TestResult.Error(e)(pos)
     }
   }
 
