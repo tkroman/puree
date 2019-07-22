@@ -1,7 +1,6 @@
 package com.tkroman.puree
 
 import java.util.concurrent.ConcurrentHashMap
-import java.util.function
 import scala.annotation.tailrec
 import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.{Global, Phase}
@@ -87,11 +86,7 @@ class UnusedDetector(puree: Puree, val global: Global) extends PluginComponent {
         Option(a.tpe).flatMap { tpe =>
           effectTypeCache.computeIfAbsent(
             tpe.safeToString,
-            new function.Function[String, Option[Type]] {
-              override def apply(t: String): Option[Type] = {
-                scrutinize(a, tpe)
-              }
-            }
+            (_: String) => scrutinize(a, tpe)
           )
         }
     }
@@ -144,9 +139,12 @@ class UnusedDetector(puree: Puree, val global: Global) extends PluginComponent {
   @tailrec
   private def isSuperConstructorCall(t: Tree): Boolean = {
     t match {
-      case Apply(Select(Super(This(_), _), _), _) => true
-      case Apply(nt, _)                           => isSuperConstructorCall(nt)
-      case _                                      => false
+      case Apply(Select(Super(This(_), _), _), _) =>
+        true
+      case Apply(nt, _) =>
+        isSuperConstructorCall(nt)
+      case _ =>
+        false
     }
   }
 
@@ -184,18 +182,28 @@ class UnusedDetector(puree: Puree, val global: Global) extends PluginComponent {
     supertypeLevelCheckCache
       .computeIfAbsent(
         treeType.typeSymbol.fullNameString,
-        new function.Function[String, Option[PureeLevel]] {
-          override def apply(t: String): Option[PureeLevel] = {
-            configuredLevels.collectFirst {
-              case (parent, (member, level))
-                  if treeType.typeSymbol.isSubClass(parent.tpe.typeSymbol) &&
-                    parent.info.member(encode(member)) != NoSymbol =>
-                level
-            }
-          }
-        }
+        (_: String) => parentWithDefinedMember(treeType)
       )
       .map(_ == targetLevel)
+  }
+
+  private def parentWithDefinedMember(treeType: Type): Option[PureeLevel] = {
+    configuredLevels.collectFirst {
+      case (parent, (member, level))
+          if isSubclass(treeType, parent) && hasMember(parent, member) =>
+        level
+    }
+  }
+
+  private def isSubclass(
+      treeType: Type,
+      parent: ClassSymbol
+  ): Boolean = {
+    treeType.typeSymbol.isSubClass(parent.tpe.typeSymbol)
+  }
+
+  private def hasMember(parent: ClassSymbol, member: String): Boolean = {
+    parent.info.member(encode(member)) != NoSymbol
   }
 
   private def intended(t: Tree): Boolean = {
