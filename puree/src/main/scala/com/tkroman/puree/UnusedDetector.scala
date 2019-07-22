@@ -62,38 +62,14 @@ class UnusedDetector(puree: Puree, val global: Global) extends PluginComponent {
   }
 
   private def noSuspiciousEffects(stats: List[Tree]): Boolean = {
-    def isOkUsage(e: Option[Type], warning: Type => Unit): Boolean = {
-      e match {
-        case Some(a) =>
-          warning(a)
-          false
-        case None =>
-          true
-      }
-    }
-
     stats.forall {
       case s if intended(s) =>
         true
-      case a: Apply =>
-        isOkUsage(
-          getEffect(a),
-          eff =>
-            reporter.warning(
-              a.pos,
-              s"Unused effectful function call of type $eff"
-            )
-        )
       case t if t.isTerm =>
-        isOkUsage(
-          getEffect(t),
-          eff =>
-            reporter.warning(
-              t.pos,
-              s"Unused effectful member reference of type $eff"
-            )
-        )
-
+        getEffect(t).forall { eff =>
+          reporter.warning(t.pos, s"Unused expression of type $eff")
+          false
+        }
       case _ =>
         true
     }
