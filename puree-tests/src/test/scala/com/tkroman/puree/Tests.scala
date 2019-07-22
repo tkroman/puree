@@ -2,29 +2,30 @@ package com.tkroman.puree
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
-import com.tkroman.puree.testsupport.PureeGlobal
+import scala.jdk.CollectionConverters._
+import com.tkroman.puree.testsupport.{PureeGlobal, TestResult}
 import org.scalatest.funsuite.AnyFunSuite
 
 class Tests extends AnyFunSuite {
-  mkTests(compile(ls("effects/pos"), pos = true, PureeGlobal.moderateCompiler))
-  mkTests(compile(ls("effects/neg"), pos = false, PureeGlobal.moderateCompiler))
+  mkTests("effects/pos", PureeGlobal.moderateCompiler)
+  mkTests("effects/neg", PureeGlobal.moderateCompiler)
+  mkTests("strict/pos", PureeGlobal.strictCompiler)
+  mkTests("strict/neg", PureeGlobal.strictCompiler)
 
-  mkTests(compile(ls("strict/pos"), pos = true, PureeGlobal.strictCompiler))
-  mkTests(compile(ls("strict/neg"), pos = false, PureeGlobal.strictCompiler))
+  private def mkTests(dir: String, compiler: PureeGlobal): Unit = {
+    mkTests(compileAll(ls(dir), pos = dir.endsWith("/pos"), compiler))
+  }
 
-  private def mkTests(xs: List[(Path, Either[String, Unit])]): Unit = {
-    def par(f: Path): String = f.getParent.getFileName.toString
+  private def mkTests(xs: List[(Path, () => TestResult)]): Unit = {
     xs.foreach {
-      case (p, either) =>
-        test(par(p.getParent) + "/" + par(p) + "/" + p.getFileName.toString) {
-          either.fold(fail(_), Function.const(succeed))
-        }
+      case (file, testBody) =>
+        val nc: Int = file.getNameCount
+        test(file.subpath(nc - 3, nc).toString)(testBody().get)
     }
   }
 
   private def ls(dir: String): List[Path] = {
-    import scala.jdk.CollectionConverters._
-    val allFiles = Files
+    Files
       .list(
         Paths.get(
           Thread
@@ -38,22 +39,13 @@ class Tests extends AnyFunSuite {
       .asScala
       .toList
       .filterNot(_.getFileName.toString.endsWith(".ignore"))
-
-    val only: List[Path] =
-      allFiles.filter(_.getFileName.toString.endsWith(".only"))
-
-    if (only.nonEmpty) {
-      only
-    } else {
-      allFiles
-    }
   }
 
-  def compile(
+  def compileAll(
       fs: List[Path],
       pos: Boolean,
       compiler: PureeGlobal
-  ): List[(Path, Either[String, Unit])] = {
-    fs.map(p => p -> compiler.compileFile(p, pos))
+  ): List[(Path, () => TestResult)] = {
+    fs.map(p => p -> (() => compiler.compileFile(p, pos)))
   }
 }

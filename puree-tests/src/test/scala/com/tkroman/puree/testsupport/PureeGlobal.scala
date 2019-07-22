@@ -11,55 +11,51 @@ import scala.tools.nsc.{Global, Settings}
 import com.tkroman.puree.Puree
 import com.tkroman.puree.annotation.intended
 
-class PureeGlobal(s: Settings, r: StoreReporter) extends Global(s, r) {
+class PureeGlobal(pureeSettings: Settings, pureeReporter: StoreReporter)
+    extends Global(pureeSettings, pureeReporter) {
+
   private final val log: Boolean = false
 
-  override protected def loadRoughPluginsList(): List[Plugin] =
+  override protected def loadRoughPluginsList(): List[Plugin] = {
     new Puree(this) :: super.loadRoughPluginsList()
-
-  def pureeReporter: StoreReporter = r
+  }
 
   def compileFile(
       path: Path,
-      pos: Boolean
-  ): Either[String, Unit] = {
-    val short: String =
-      s"${path.getParent.getFileName.toString}/${path.getFileName.toString}"
+      expectSuccess: Boolean
+  ): TestResult = {
     try {
       pureeReporter.reset()
-      new Run()
-        .compileSources(List(getSourceFile(path.toString)))
-      if (log && pureeReporter.infos.nonEmpty) {
-        println(
-          pureeReporter.infos
-            .map { i =>
-              val filename: Path = Paths
-                .get(i.pos.source.path)
-                .getFileName
+      new Run().compileSources(List(getSourceFile(path.toString)))
+      logCompilationIfShould()
 
-              s"${i.severity} $filename:${i.pos.line}:${i.pos.column} ${i.msg}"
-            }
-            .mkString("\n")
-        )
-      }
-      val msg: String = pureeReporter.infos.map(_.msg).mkString("\n")
-      val hasErrors: Boolean = pureeReporter.hasErrors
-      if (hasErrors) {
-        throw new Exception(msg)
-      }
-      if (pos) {
-        Right(())
-      } else {
-        Left(s"Expected compilation of $short to fail, succeeded instead")
+      (pureeReporter.hasErrors, expectSuccess) match {
+        case (false, true) | (true, false) =>
+          TestResult.Ok
+        case (true, true) =>
+          TestResult.FailedPos(pureeReporter.infos.map(_.msg).mkString("\n"))
+        case (false, false) =>
+          TestResult.FailedNeg
       }
     } catch {
-      case e: Exception if pos =>
-        Left(
-          s"Expected compilation of $short to succeed, failed instead:\n${e.getMessage}"
-        )
-      case _: Exception =>
-        Right(())
+      case e: Exception =>
+        TestResult.Error(e)
+    }
+  }
 
+  private def logCompilationIfShould(): Unit = {
+    if (log && pureeReporter.infos.nonEmpty) {
+      println(
+        pureeReporter.infos
+          .map { i =>
+            val filename: Path = Paths
+              .get(i.pos.source.path)
+              .getFileName
+
+            s"${i.severity} $filename:${i.pos.line}:${i.pos.column} ${i.msg}"
+          }
+          .mkString("\n")
+      )
     }
   }
 }

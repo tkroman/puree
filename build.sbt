@@ -33,10 +33,6 @@ lazy val testSettings = Seq(
         "org.scalatest" %% "scalatest" % "3.1.0-SNAP12" % Test
     }
   ),
-  Test / scalacOptions ++= {
-    val jar = (puree / Compile / packageBin).value
-    Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile
-  },
   ThisBuild / scalacOptions ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 11)) | Some((2, 12)) => Seq.empty
